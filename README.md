@@ -5,7 +5,7 @@ smallab (Small Lab) is an experiment framework designed to be easy to use with y
 
 The code in this repo should be understandable in at most 10 minutes.
 
-##Installation
+## Installation
 
 
 pip install smallab
@@ -15,7 +15,7 @@ pip install smallab
 or clone here from source
 
 
-##Usage
+## Usage
 Check out demo.py (Copied here)
 
 
