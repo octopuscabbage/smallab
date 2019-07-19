@@ -1,23 +1,4 @@
-# smallab
-:small_blue_diamond: :microscope: :small_blue_diamond:
-
-smallab (Small Lab) is an experiment framework designed to be easy to use with your experiment. 
-
-The code in this repo should be understandable in at most 10 minutes.
-
-##Installation
-
-
-pip install smallab
-
-(Not actually working yet!)
-
-or clone here from source
-
-
-##Usage
-Check out demo.py (Copied here)
-
+if __name__ == "__main__":
 
     import typing
     import random
