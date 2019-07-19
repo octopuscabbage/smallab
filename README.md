@@ -37,7 +37,7 @@ class SimpleExperiment(Experiment):
         random.seed(specification["seed"])
         for i in range(specification["num_calls"]): #Advance the random number generator some amount
            random.random()
-         return {"number":random.random()}
+        return {"number":random.random()}
 
 runner = ExperimentRunner()
 
@@ -82,7 +82,7 @@ for fname in os.listdir(runner.get_save_directory("random_number_from_generator"
      if "json" not in fname: #don't read back the completed file
          with open(os.path.join(runner.get_save_directory("random_number_from_generator"),fname),"rb") as f:               
             results = pickle.load(f)
-             print(results["specification"]["seed"])
-             print(results["result"]["number"])
+            print(results["specification"]["seed"])
+            print(results["result"]["number"])
 
 ```
