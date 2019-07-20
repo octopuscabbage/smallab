@@ -1,8 +1,9 @@
-import itertools
 import copy
+import itertools
 import typing
 
-class SpecificationGenerator():
+
+class SpecificationGenerator:
 
     def generate(self, generation_specification: typing.Dict) -> typing.List[typing.Dict]:
         '''

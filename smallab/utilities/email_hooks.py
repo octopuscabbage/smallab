@@ -1,7 +1,8 @@
 import email
 import json
-import typing
 import smtplib
+import typing
+
 
 def __send(email_address,message,port):
     message["Subject"] = "Smallab report"

@@ -103,4 +103,10 @@ venv.bak/
 # mypy
 .mypy_cache/
 .idea/
+
+#Pipenv
 *.lock
+
+#smallab specific
+experiment_runs/
+

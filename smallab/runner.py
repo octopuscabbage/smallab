@@ -1,11 +1,13 @@
 import json
+import os
+import pickle
+import typing
+from multiprocessing import cpu_count
+
 import tqdm
 from joblib import Parallel, delayed
-from multiprocessing import cpu_count
-import os
-import typing
+
 from smallab.experiment import Experiment
-import pickle
 
 
 class ExperimentRunner(object):
