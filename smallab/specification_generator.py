@@ -1,7 +1,7 @@
 import copy
 import itertools
 import typing
-
+import json
 
 class SpecificationGenerator:
 
@@ -48,9 +48,9 @@ class SpecificationGenerator:
         }
         '''
         iterators = []
-        for key, value in generation_specification.items():
-            if isinstance(value, list):
-                iterators.append(list(map(lambda x: (key, x), value)))
+        for key,value in generation_specification.items():
+            if isinstance(value,list):
+                iterators.append(list(map(lambda x: (key,x),value)))
         specifications = []
         for updates in itertools.product(*iterators):
             cur_j = copy.deepcopy(generation_specification)
@@ -58,3 +58,8 @@ class SpecificationGenerator:
                 cur_j[update_key] = update_value
             specifications.append(cur_j)
         return specifications
+
+    def from_json_file(self,fp:typing.AnyStr) -> typing.List[typing.Dict]:
+        with open(fp) as f:
+            j = json.load(f)
+        return self.generate(j)
