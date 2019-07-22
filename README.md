@@ -3,7 +3,15 @@
 
 smallab (Small Lab) is an experiment framework designed to be easy to use with your experiment. 
 
-The code in this repo should be understandable in at most 10 minutes.
+The code in this repo should be understandable as a whole in at most 10 minutes.
+
+## Features
+
+* Easy to understand and simple
+* Easy parallelization of experiments
+* Only runs not previously completed experiments
+* Hooks allow monitoring batch progress
+* All parameters to methods use the typing module
 
 ## Installation
 
@@ -31,9 +39,9 @@ from smallab.runner import ExperimentRunner
 
 #Write a simple experiment
 class SimpleExperiment(Experiment):
-   #Need to implement this method, will be passed the specification
-   #Return a dictionary of results
-   def main(self, specification: typing.Dict) -> typing.Dict:
+    #Need to implement this method, will be passed the specification
+    #Return a dictionary of results
+    def main(self, specification: typing.Dict) -> typing.Dict:
         random.seed(specification["seed"])
         for i in range(specification["num_calls"]): #Advance the random number generator some amount
            random.random()
@@ -49,7 +57,7 @@ runner.on_specification_complete(lambda specification, result: print(result["num
 from smallab.utilities.email_hooks import email_on_batch_sucesss
 runner.on_batch_complete(email_on_batch_sucesss("test@example.com",smtp_port=1025))
 #Take it back off since we don't actually want to bother Mr. Test
-runner.on_batch_complete_function = None
+runner.on_batch_complete(None)
 
 #Set the specifications for our experiments, the author reccomends reading this from a json file!
 specifications = [{"seed": 1,"num_calls":1}, {"seed":2,"num_calls":1}]
@@ -58,12 +66,12 @@ specifications = [{"seed": 1,"num_calls":1}, {"seed":2,"num_calls":1}]
 runner.run("random_number",specifications,SimpleExperiment())
 
 #Read back our results
-for fname in os.listdir(runner.get_save_directory("random_number")):
+for fname in os.listdir(runner.get_batch_save_folder("random_number")):
     if "json" not in fname: #don't read back the completed file
-         with open(os.path.join(runner.get_save_directory("random_number"),fname),"rb") as f:
-             results = pickle.load(f)
-             print(results["specification"]["seed"])
-             print(results["result"]["number"])
+        with open(os.path.join(runner.get_batch_save_folder("random_number"), fname), "rb") as f:
+            results = pickle.load(f)
+            print(results["specification"]["seed"])
+            print(results["result"]["number"])
 
 
 from smallab.specification_generator import SpecificationGenerator
@@ -78,11 +86,23 @@ print(specifications)
 runner.run("random_number_from_generator",specifications,SimpleExperiment(),continue_from_last_run=True)
 
 #Read back our results
-for fname in os.listdir(runner.get_save_directory("random_number_from_generator")):
-     if "json" not in fname: #don't read back the completed file
-         with open(os.path.join(runner.get_save_directory("random_number_from_generator"),fname),"rb") as f:               
+for fname in os.listdir(runner.get_batch_save_folder("random_number_from_generator")):
+    if "json" not in fname: #don't read back the completed file
+        with open(os.path.join(runner.get_batch_save_folder("random_number_from_generator"), fname), "rb") as f:
             results = pickle.load(f)
             print(results["specification"]["seed"])
             print(results["result"]["number"])
 
 ```
+
+## How it works
+The ExperimentRunner class is passed a list of dictionaries of specifications. 
+These dictionaries need to be json serializable.
+The ExperimentRunner looks at the completed.json in the folder for the batch name (The name parameter of the .run method) and computes which experiments need to be run. 
+The experiments that need to run are the specifications not in the completed.json.
+The ExperimentRunner begins runnning the batch either in parallel or single threaded. 
+If the parallel implementation is used each specification is joblib's threaded backend. 
+Once all experiments are either completed or failed (They threw an exception) the results are saved as a pickle file. 
+The results are saved in a dictionary that looks like {"specification": <the specification the experiment was passed>, "result": <what the experiment .main returned>}.
+The return value of the experiment .main function must be pickle serializable. 
+The runner has several hooks which are called at different times. 

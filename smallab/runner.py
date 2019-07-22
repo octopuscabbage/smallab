@@ -8,6 +8,7 @@ import tqdm
 from joblib import Parallel, delayed
 
 from smallab.experiment import Experiment
+from smallab.utilities.hooks import format_exception
 
 
 class ExperimentRunner(object):
@@ -25,7 +26,7 @@ class ExperimentRunner(object):
     def __default_on_failure(exception: Exception,specification: typing.Dict):
         print("!!! Failure !!!")
         print(specification)
-        print(exception)
+        print(format_exception(exception))
 
     def on_specification_complete(self, f: typing.Callable[[typing.Dict, typing.Dict], typing.NoReturn]) -> typing.NoReturn:
         """
@@ -41,7 +42,7 @@ class ExperimentRunner(object):
         :param f: A function called when an experiment fails. It is passed the exception raised and the specification for that experiment and returns nothing
         :return: No Return
         """
-        self.on_failure_function = f
+        self.on_specification_failure_function = f
 
     def on_batch_complete(self, f: typing.Callable[[typing.List[typing.Dict]],typing.NoReturn]) -> typing.NoReturn:
         """
@@ -167,5 +168,5 @@ class ExperimentRunner(object):
                 self.on_specification_complete_function(specification, result)
             return None
         except Exception as e:
-            self.on_failure_function(e, specification)
+            self.on_specification_failure_function(e, specification)
             return e

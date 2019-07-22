@@ -2,6 +2,8 @@ import email
 import json
 import smtplib
 import typing
+from smallab.utilities.hooks import  format_exception
+
 
 
 def __send(email_address,message,port):
@@ -16,7 +18,7 @@ def __send(email_address,message,port):
 def email_on_specification_failure(email_address: typing.AnyStr,smtp_port:int) -> typing.Callable[[Exception,typing.Dict],typing.Any]:
     def closure(exception,specification):
         message = email.message.EmailMessage()
-        content = "!!! Failure !!! \n\n Specification: %s \n\n Exception: %s" % (str(json.dumps(specification, sort_keys=True, indent=1)),str(exception))
+        content = "!!! Failure !!! \n\n Specification: %s \n\n Exception: %s" % (str(json.dumps(specification, sort_keys=True, indent=1)),str(format_exception(exception)))
         message.set_content(content)
         __send(email_address,message,smtp_port)
 
@@ -38,7 +40,7 @@ def email_on_batch_failure(email_address: typing.AnyStr,smtp_port:int) -> typing
 
         content = "!!! Failure !!! \n\n "
         for exception, specification in zip(exceptions,specifications):
-            content += "Specification: %s \n\n Exception: %s \n\n" % (str(json.dumps(specification, sort_keys=True, indent=1)),str(exception))
+            content += "Specification: %s \n\n Exception: %s \n\n" % (str(json.dumps(specification, sort_keys=True, indent=1)),str(format_exception(exception)))
         message.set_content(content)
 
         __send(email_address,message,smtp_port)

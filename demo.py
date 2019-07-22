@@ -30,7 +30,7 @@ if __name__ == "__main__":
     from smallab.utilities.email_hooks import email_on_batch_sucesss
     runner.on_batch_complete(email_on_batch_sucesss("test@example.com",smtp_port=1025))
     #Take it back off since we don't actually want to bother Mr. Test
-    runner.on_batch_complete_function = None
+    runner.on_batch_complete(None)
 
     #Set the specifications for our experiments, the author reccomends reading this from a json file!
     specifications = [{"seed": 1,"num_calls":1}, {"seed":2,"num_calls":1}]
@@ -39,9 +39,9 @@ if __name__ == "__main__":
     runner.run("random_number",specifications,SimpleExperiment())
 
     #Read back our results
-    for fname in os.listdir(runner.get_save_directory("random_number")):
+    for fname in os.listdir(runner.get_batch_save_folder("random_number")):
         if "json" not in fname: #don't read back the completed file
-            with open(os.path.join(runner.get_save_directory("random_number"),fname),"rb") as f:
+            with open(os.path.join(runner.get_batch_save_folder("random_number"), fname), "rb") as f:
                 results = pickle.load(f)
                 print(results["specification"]["seed"])
                 print(results["result"]["number"])
@@ -59,9 +59,9 @@ if __name__ == "__main__":
     runner.run("random_number_from_generator",specifications,SimpleExperiment(),continue_from_last_run=True)
 
     #Read back our results
-    for fname in os.listdir(runner.get_save_directory("random_number_from_generator")):
+    for fname in os.listdir(runner.get_batch_save_folder("random_number_from_generator")):
         if "json" not in fname: #don't read back the completed file
-            with open(os.path.join(runner.get_save_directory("random_number_from_generator"),fname),"rb") as f:
+            with open(os.path.join(runner.get_batch_save_folder("random_number_from_generator"), fname), "rb") as f:
                 results = pickle.load(f)
                 print(results["specification"]["seed"])
                 print(results["result"]["number"])
