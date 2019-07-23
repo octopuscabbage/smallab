@@ -4,8 +4,8 @@ import pickle
 import typing
 from multiprocessing import cpu_count
 
-import tqdm
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from smallab.experiment import Experiment
 from smallab.utilities.hooks import format_exception
@@ -118,7 +118,7 @@ class ExperimentRunner(object):
         failed_specifications = []
         completed_specifications = []
         if num_parallel == 1:
-            for specification in tqdm.tqdm(need_to_run_specifications, desc="Experiments", disable=not show_progress):
+            for specification in tqdm(need_to_run_specifications, desc="Experiments", disable=not show_progress):
                 exception_thrown = self.__run_and_save(name, experiment, specification)
 
                 #Add to batch completions and failures
@@ -134,10 +134,13 @@ class ExperimentRunner(object):
             else:
                 cores_to_use = min(num_parallel,len(specifications))
             #Begin to run everything in joblib
-            exceptions_thrown = Parallel(n_jobs=cores_to_use, prefer="threads")(
-                delayed(lambda specification: self.__run_and_save(name, experiment, specification))(specification) for
-                specification in #TODO tqdm here advances when the job is pulled not completed
-                tqdm.tqdm(specifications, desc="Experiments on %i cores" % cores_to_use, disable=not show_progress))
+            with tqdm(total=len(specifications)) as pbar:
+                def parallel_f(name,experiment,specification):
+                    self.__run_and_save(name, experiment, specification)
+                    pbar.update(1)
+                exceptions_thrown = Parallel(n_jobs=cores_to_use, prefer="threads")(
+                    delayed(lambda specification: parallel_f(name, experiment, specification))(specification) for
+                    specification in specifications)
 
             #Look through output to create batch failures and sucesses
             for specification,exception_thrown in zip(specifications,exceptions_thrown):
