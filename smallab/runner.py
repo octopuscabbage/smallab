@@ -87,8 +87,12 @@ class ExperimentRunner(object):
     def get_completed_file(self,name):
         return os.path.join(self.get_save_directory(name),"completed.json")
 
+    def write_completed(self,name,completed_specifications):
+        with open(self.get_completed_file(name), "w") as f:
+            json.dump(completed_specifications, f,indent=2,sort_keys=True)
+
     def run(self, name: typing.AnyStr, specifications: typing.List[typing.Dict], experiment: Experiment,
-            continue_from_last_run=True, num_parallel=1, show_progress=True) -> typing.NoReturn:
+            continue_from_last_run=True, num_parallel=1, show_progress=True, dont_catch_exceptions=False) -> typing.NoReturn:
         """
         The method called to run an experiment
         :param name: The name of this experiment batch
@@ -99,6 +103,7 @@ class ExperimentRunner(object):
         :param show_progress: Whether or not to show a progress bar for experiment completion
         :return: No return
         """
+        already_completed_specifications = []
         if os.path.exists(self.get_completed_file(name)) and continue_from_last_run:
             with open(self.get_completed_file(name)) as f:
                 already_completed_specifications = json.load(f)
@@ -119,7 +124,7 @@ class ExperimentRunner(object):
         completed_specifications = []
         if num_parallel == 1:
             for specification in tqdm(need_to_run_specifications, desc="Experiments", disable=not show_progress):
-                exception_thrown = self.__run_and_save(name, experiment, specification)
+                exception_thrown = self.__run_and_save(name, experiment, specification,dont_catch_exceptions)
 
                 #Add to batch completions and failures
                 if exception_thrown is None:
@@ -127,6 +132,7 @@ class ExperimentRunner(object):
                 else:
                     exceptions.append(exception_thrown)
                     failed_specifications.append(specification)
+                self.write_completed(name,already_completed_specifications + completed_specifications)
         else:
             #Find the number of jobs to run
             if num_parallel is None:
@@ -136,7 +142,7 @@ class ExperimentRunner(object):
             #Begin to run everything in joblib
             with tqdm(total=len(specifications)) as pbar:
                 def parallel_f(name,experiment,specification):
-                    self.__run_and_save(name, experiment, specification)
+                    self.__run_and_save(name, experiment, specification,dont_catch_exceptions)
                     pbar.update(1)
                 exceptions_thrown = Parallel(n_jobs=cores_to_use, prefer="threads")(
                     delayed(lambda specification: parallel_f(name, experiment, specification))(specification) for
@@ -149,9 +155,8 @@ class ExperimentRunner(object):
                 else:
                     exceptions.append(exception_thrown)
                     failed_specifications.append(exception_thrown)
+            self.write_completed(name,already_completed_specifications + completed_specifications)
 
-        with open(self.get_completed_file(name),"w") as f:
-            json.dump(completed_specifications,f)
 
         #Call batch complete functions
         if exceptions and self.on_batch_failure_function is not None:
@@ -161,8 +166,20 @@ class ExperimentRunner(object):
             self.on_batch_complete_function(specifications)
 
 
-    def __run_and_save(self, name, experiment, specification):
-        try:
+    def __run_and_save(self, name, experiment, specification,dont_catch_exceptions):
+        if not dont_catch_exceptions:
+            try:
+                result = experiment.main(specification)
+                output_dictionary = {"specification": specification, "result": result}
+                with open(self.get_save_file(name, specification), "wb") as f:
+                    pickle.dump(output_dictionary, f)
+                if self.on_specification_complete_function is not None:
+                    self.on_specification_complete_function(specification, result)
+                return None
+            except Exception as e:
+                self.on_specification_failure_function(e, specification)
+                return e
+        else:
             result = experiment.main(specification)
             output_dictionary = {"specification": specification, "result": result}
             with open(self.get_save_file(name, specification), "wb") as f:
@@ -170,6 +187,4 @@ class ExperimentRunner(object):
             if self.on_specification_complete_function is not None:
                 self.on_specification_complete_function(specification, result)
             return None
-        except Exception as e:
-            self.on_specification_failure_function(e, specification)
-            return e
+

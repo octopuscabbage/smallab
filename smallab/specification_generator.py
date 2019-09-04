@@ -62,4 +62,10 @@ class SpecificationGenerator:
     def from_json_file(self,fp:typing.AnyStr) -> typing.List[typing.Dict]:
         with open(fp) as f:
             j = json.load(f)
-        return self.generate(j)
+        if isinstance(j, list):
+            out = []
+            for specification in j:
+                out.extend(self.generate(specification))
+            return out
+        else:
+            return self.generate(j)
