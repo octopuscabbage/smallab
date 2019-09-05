@@ -39,9 +39,9 @@ if __name__ == "__main__":
     runner.run("random_number",specifications,SimpleExperiment())
 
     #Read back our results
-    for fname in os.listdir(runner.get_batch_save_folder("random_number")):
+    for fname in os.listdir(runner.get_save_directory("random_number")):
         if "json" not in fname: #don't read back the completed file
-            with open(os.path.join(runner.get_batch_save_folder("random_number"), fname), "rb") as f:
+            with open(os.path.join(runner.get_save_directory("random_number"), fname), "rb") as f:
                 results = pickle.load(f)
                 print(results["specification"]["seed"])
                 print(results["result"]["number"])
@@ -59,10 +59,34 @@ if __name__ == "__main__":
     runner.run("random_number_from_generator",specifications,SimpleExperiment(),continue_from_last_run=True)
 
     #Read back our results
-    for fname in os.listdir(runner.get_batch_save_folder("random_number_from_generator")):
+    for fname in os.listdir(runner.get_save_directory("random_number_from_generator")):
         if "json" not in fname: #don't read back the completed file
-            with open(os.path.join(runner.get_batch_save_folder("random_number_from_generator"), fname), "rb") as f:
+            with open(os.path.join(runner.get_save_directory("random_number_from_generator"), fname), "rb") as f:
                 results = pickle.load(f)
                 print(results["specification"]["seed"])
                 print(results["result"]["number"])
+
+
+    #If you have an experiment you want run on a lot of computers you can use the MultiComputerGenerator
+    #You assign each computer a number from 0..number_of_computers-1 and it gives each computer every number_of_computerth specification
+    from smallab.specification_generator import MultiComputerGenerator
+    all_specifications = SpecificationGenerator().from_json_file('test.json')
+
+    g1 = MultiComputerGenerator(0,2)
+    g2 = MultiComputerGenerator(1,2)
+    specifications_1 = g1.from_json_file("test.json")
+    specifications_2 = g2.from_json_file("test.json")
+
+
+    assert len(specifications_1) + len(specifications_2) == len(all_specifications)
+
+    #Need to freeze the sets in order to do set manipulation on dictionaries
+    specifications_1 = set([frozenset(sorted(x.items())) for x in specifications_1])
+    specifications_2 = set([frozenset(sorted(x.items())) for x in specifications_2])
+    all_specifications = set([frozenset(sorted(x.items())) for x in all_specifications])
+
+    #This will generate two disjoint sets of specifications
+    assert specifications_1.isdisjoint(specifications_2)
+    #That together make the whole specification
+    assert specifications_1.union(specifications_2) == all_specifications
 
