@@ -4,7 +4,6 @@ import typing
 import json
 
 class SpecificationGenerator:
-
     def generate(self, generation_specification: typing.Dict) -> typing.List[typing.Dict]:
         '''
         This class takes a generation specification and outputs a list of specifications based on it.
@@ -69,3 +68,27 @@ class SpecificationGenerator:
             return out
         else:
             return self.generate(j)
+
+class MultiComputerGenerator(SpecificationGenerator):
+    def __init__(self, computer_number, number_of_computers):
+        '''
+        Divides the specification across multiple computers by giving each computer the i*computer_numberth specification
+
+        If you have 3 computers then the computer numbers would be 0,1,2 and the number_of_computers would be 3
+
+        :param computer_number: 0 indexed number which to assign this computer (MUST NOT OVERLAP WITH ANOTHER COMPUTER)
+        :param number_of_computers: The total number of computers which are being used
+        '''
+        assert computer_number <= number_of_computers
+
+        self.computer_number = computer_number
+        self.number_of_computers = number_of_computers
+
+    def shard(self, l: typing.List) -> typing.List:
+        return l[self.computer_number::self.number_of_computers]
+
+    def generate(self, generation_specification: typing.Dict) -> typing.List[typing.Dict]:
+        return self.shard(super().generate(generation_specification))
+    def from_json_file(self, fp: typing.AnyStr) -> typing.List[typing.Dict]:
+        return self.shard(super().from_json_file(fp))
+
