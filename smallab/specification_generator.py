@@ -81,7 +81,7 @@ class MultiComputerGenerator(SpecificationGenerator):
         :param computer_number: 0 indexed number which to assign this computer (MUST NOT OVERLAP WITH ANOTHER COMPUTER)
         :param number_of_computers: The total number of computers which are being used
         '''
-        assert computer_number <= number_of_computers
+        assert computer_number < number_of_computers, "Computer number must be less than number of computers"
 
         self.computer_number = computer_number
         self.number_of_computers = number_of_computers
