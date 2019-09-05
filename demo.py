@@ -107,3 +107,4 @@ if __name__ == "__main__":
     assert specifications_1.isdisjoint(specifications_2)
     # That together make the whole specification
     assert specifications_1.union(specifications_2) == all_specifications
+
