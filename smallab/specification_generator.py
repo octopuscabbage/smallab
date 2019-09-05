@@ -2,9 +2,10 @@ import copy
 import itertools
 import typing
 import json
+import collections
 
 class SpecificationGenerator:
-    def generate(self, generation_specification: typing.Dict) -> typing.List[typing.Dict]:
+    def generate(self, generation_specification: typing.Dict) -> typing.List[collections.OrderedDict]:
         '''
         This class takes a generation specification and outputs a list of specifications based on it.
         The format is as follows
@@ -46,8 +47,9 @@ class SpecificationGenerator:
             "a": [[1,2,3]]
         }
         '''
+        generation_specification = collections.OrderedDict(sorted(generation_specification.items()))
         iterators = []
-        for key,value in sorted(generation_specification.items()):
+        for key,value in generation_specification.items():
             if isinstance(value,list):
                 iterators.append(list(map(lambda x: (key,x),value)))
         specifications = []
@@ -89,6 +91,4 @@ class MultiComputerGenerator(SpecificationGenerator):
 
     def generate(self, generation_specification: typing.Dict) -> typing.List[typing.Dict]:
         return self.shard(super().generate(generation_specification))
-    def from_json_file(self, fp: typing.AnyStr) -> typing.List[typing.Dict]:
-        return self.shard(super().from_json_file(fp))
 
