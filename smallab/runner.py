@@ -84,12 +84,22 @@ class ExperimentRunner(object):
         :return: The filename to save this run under
         """
         return os.path.join(self.get_save_directory(name), str(hash(json.dumps(specification, sort_keys=True))))
-    def get_completed_file(self,name):
-        return os.path.join(self.get_save_directory(name),"completed.json")
 
-    def write_completed(self,name,completed_specifications):
-        with open(self.get_completed_file(name), "w") as f:
-            json.dump(completed_specifications, f,indent=2,sort_keys=True)
+    def find_uncompleted_specifications(self,name, specifications):
+        already_completed_specifications = []
+
+        for fname in os.listdir(self.get_save_directory(name)):
+            with open(os.path.join(self.get_save_directory(name),fname),"rb") as f:
+                completed = pickle.load(f)
+            already_completed_specifications.append(completed["specification"])
+
+        need_to_run_specifications = []
+        for specification in specifications:
+            if specification in already_completed_specifications:
+                print("Skipping: " + str(specification))
+            else:
+                need_to_run_specifications.append(specification)
+        return need_to_run_specifications
 
     def run(self, name: typing.AnyStr, specifications: typing.List[typing.Dict], experiment: Experiment,
             continue_from_last_run=True, num_parallel=1, show_progress=True, dont_catch_exceptions=False) -> typing.NoReturn:
@@ -103,18 +113,11 @@ class ExperimentRunner(object):
         :param show_progress: Whether or not to show a progress bar for experiment completion
         :return: No return
         """
-        already_completed_specifications = []
-        if os.path.exists(self.get_completed_file(name)) and continue_from_last_run:
-            with open(self.get_completed_file(name)) as f:
-                already_completed_specifications = json.load(f)
-            need_to_run_specifications = []
-            for specification in specifications:
-                if continue_from_last_run and specification in already_completed_specifications:
-                    print("Skipping: " + str(specification))
-                else:
-                    need_to_run_specifications.append(specification)
+        if continue_from_last_run:
+            need_to_run_specifications = self.find_uncompleted_specifications(name,specifications)
         else:
             need_to_run_specifications = specifications
+
 
         if not os.path.exists(self.get_save_directory(name)):
             os.makedirs(self.get_save_directory(name))
@@ -132,7 +135,6 @@ class ExperimentRunner(object):
                 else:
                     exceptions.append(exception_thrown)
                     failed_specifications.append(specification)
-                self.write_completed(name,already_completed_specifications + completed_specifications)
         else:
             #Find the number of jobs to run
             if num_parallel is None:
@@ -155,7 +157,6 @@ class ExperimentRunner(object):
                 else:
                     exceptions.append(exception_thrown)
                     failed_specifications.append(exception_thrown)
-            self.write_completed(name,already_completed_specifications + completed_specifications)
 
 
         #Call batch complete functions
