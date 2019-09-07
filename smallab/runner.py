@@ -142,13 +142,13 @@ class ExperimentRunner(object):
             else:
                 cores_to_use = min(num_parallel,len(specifications))
             #Begin to run everything in joblib
-            with tqdm(total=len(specifications)) as pbar:
+            with tqdm(total=len(need_to_run_specifications)) as pbar:
                 def parallel_f(name,experiment,specification):
                     self.__run_and_save(name, experiment, specification,dont_catch_exceptions)
                     pbar.update(1)
                 exceptions_thrown = Parallel(n_jobs=cores_to_use, prefer="threads")(
                     delayed(lambda specification: parallel_f(name, experiment, specification))(specification) for
-                    specification in specifications)
+                    specification in need_to_run_specifications)
 
             #Look through output to create batch failures and sucesses
             for specification,exception_thrown in zip(specifications,exceptions_thrown):
