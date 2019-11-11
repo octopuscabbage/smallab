@@ -18,8 +18,6 @@ The code in this repo should be understandable as a whole in at most 10 minutes.
 
 pip install smallab
 
-(Not actually working yet!)
-
 or clone here from source
 
 
