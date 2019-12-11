@@ -1,26 +1,30 @@
-name: Upload Python Package
-https://github.com/octopuscabbage/smallab
-on:
-  release:
-    types: [created]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v1
-    - name: Set up Python
-      uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel twine
-    - name: Build and publish
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-      run: |
-        python setup.py sdist bdist_wheel
-        twine upload dist/*
+--
+name: pypi-publish
+description: Upload Python distribution packages to PyPI
+inputs:
+  user:
+    description: PyPI user
+    required: false
+    default: __token__
+  password:
+    description: Password for your PyPI user or an access token
+    required: true
+  repository_url:
+    description: The repository URL to use
+    required: false
+  packages_dir:
+    description: The target directory for distribution
+    required: false
+    default: dist
+branding:
+  color: yellow
+  icon: upload-cloud
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+  - ${{ inputs.user }}
+  - ${{ inputs.password }}
+  - ${{ inputs.repository_url }}
+  - ${{ inputs.packages_dir }}
+© 2019 GitHub, Inc.
