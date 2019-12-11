@@ -7,7 +7,7 @@ import typing
 import pprint
 
 def configure_logging_default(experiment_name):
-    folder_loc = os.path.join("experiment_runs",experiment_name)
+    folder_loc = os.path.join("experiment_runs",experiment_name,"logs")
     file_loc = os.path.join(folder_loc, str(datetime.datetime.now()) + ".log")
     if not os.path.exists(folder_loc):
         os.makedirs(folder_loc)
@@ -26,11 +26,11 @@ def logging_on_specification_complete_callback(specification:typing.Dict,result:
     pp = pretty_printer()
     specification_string = pp.pformat(specification)
     result_string = pp.pformat(result)
-    logging.info("Specification Complete\nSpecification:\n{}\nResult:\n{}".format(specification_string,result_string))
+    logging.info("\nSpecification Complete\nSpecification:\n{}\nResult:\n{}".format(specification_string,result_string))
 def logging_on_specification_failure_callback(exception:Exception,specification:typing.Dict) -> typing.NoReturn:
     pp = pretty_printer()
     traceback_string = traceback.format_exc()
     specification_string = pp.pformat(specification)
-    logging.error("Specification Failure\nSpecification:\n{}\nException:\n{}".format(specification_string,traceback_string))
+    logging.error("\nSpecification Failure\nSpecification:\n{}\nException:\n{}".format(specification_string,traceback_string))
 
 

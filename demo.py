@@ -41,12 +41,13 @@ if __name__ == "__main__":
     runner.run("random_number",specifications,SimpleExperiment())
 
     #Read back our results
-    for fname in os.listdir(runner.get_save_directory("random_number")):
-        if "json" not in fname: #don't read back the completed file
-            with open(os.path.join(runner.get_save_directory("random_number"), fname), "rb") as f:
-                results = pickle.load(f)
-                print(results["specification"]["seed"])
-                print(results["result"]["number"])
+    for root,_,files in os.walk(runner.get_save_directory("random_number")):
+        for fname in files:
+            if ".pkl" in fname:
+                with open(os.path.join(root, fname), "rb") as f:
+                    results = pickle.load(f)
+                    print(results["specification"]["seed"])
+                    print(results["result"]["number"])
 
 
     from smallab.specification_generator import SpecificationGenerator
@@ -61,13 +62,13 @@ if __name__ == "__main__":
     runner.run("random_number_from_generator",specifications,SimpleExperiment(),continue_from_last_run=True)
 
     #Read back our results
-    for fname in os.listdir(runner.get_save_directory("random_number_from_generator")):
-        if "json" not in fname: #don't read back the completed file
-            with open(os.path.join(runner.get_save_directory("random_number_from_generator"), fname), "rb") as f:
-                results = pickle.load(f)
-                print(results["specification"]["seed"])
-                print(results["result"]["number"])
-
+    for root,_,files in os.walk(runner.get_save_directory("random_number_from_generator")):
+        for fname in files:
+            if ".pkl" in fname:
+                with open(os.path.join(root, fname), "rb") as f:
+                    results = pickle.load(f)
+                    print(results["specification"]["seed"])
+                    print(results["result"]["number"])
 
     #If you have an experiment you want run on a lot of computers you can use the MultiComputerGenerator
     #You assign each computer a number from 0..number_of_computers-1 and it gives each computer every number_of_computerth specification
@@ -100,5 +101,5 @@ if __name__ == "__main__":
     logger_callbacks.configure_logging_default(name)
     runner.on_specification_complete(logger_callbacks.logging_on_specification_complete_callback)
     runner.on_specification_failure(logger_callbacks.logging_on_specification_failure_callback)
-    runner.run(name,specifications,SimpleExperiment(),continue_from_last_run=True)
+    runner.run(name,SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True)
 
