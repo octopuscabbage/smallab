@@ -101,5 +101,5 @@ if __name__ == "__main__":
     logger_callbacks.configure_logging_default(name)
     runner.on_specification_complete(logger_callbacks.logging_on_specification_complete_callback)
     runner.on_specification_failure(logger_callbacks.logging_on_specification_failure_callback)
-    runner.run(name,SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True)
+    runner.run(name,SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True,num_parallel=None)
 

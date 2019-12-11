@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from smallab.experiment import Experiment
 from smallab.utilities.hooks import format_exception
-from threading import RLock
+from threading import Lock
 
 
 class ExperimentRunner(object):
@@ -23,7 +23,7 @@ class ExperimentRunner(object):
         self.on_batch_complete_function = None
         self.on_batch_failure_function = None
         self.experiment_folder = "experiment_runs/"
-        self.completed_lock = RLock()
+        self.completed_lock = Lock()
 
     @staticmethod
     def __default_on_failure(exception: Exception,specification: typing.Dict):
@@ -108,11 +108,10 @@ class ExperimentRunner(object):
                             str(hash(json.dumps(specification, sort_keys=True))))
 
     def _write_to_completed_json(self, name:typing.AnyStr, completed_specifications:typing.List[typing.Dict], failed_specifications:typing.List[typing.Dict]):
-        with self.completed_lock:
-            with open(os.path.join(self.get_save_directory(name),"completed.json"),'w') as f:
-                json.dump(completed_specifications,f)
-            with open(os.path.join(self.get_save_directory(name),"failed.json"),'w') as f:
-                json.dump(failed_specifications, f)
+        with open(os.path.join(self.get_save_directory(name),"completed.json"),'w') as f:
+            json.dump(completed_specifications,f)
+        with open(os.path.join(self.get_save_directory(name),"failed.json"),'w') as f:
+            json.dump(failed_specifications, f)
 
     def _find_uncompleted_specifications(self, name, specifications):
         already_completed_specifications = []
