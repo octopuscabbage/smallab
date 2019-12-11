@@ -18,6 +18,8 @@ if __name__ == "__main__":
             random.seed(specification["seed"])
             for i in range(specification["num_calls"]): #Advance the random number generator some amount
                random.random()
+            if "fail" in specification and specification["fail"]:
+                raise Exception()
             return {"number":random.random()}
 
     runner = ExperimentRunner()
@@ -89,4 +91,14 @@ if __name__ == "__main__":
     assert specifications_1.isdisjoint(specifications_2)
     #That together make the whole specification
     assert specifications_1.union(specifications_2) == all_specifications
+
+
+
+    #You can use the provided logging callbacks to log completion and failure of specific specifcations
+    from smallab.utilities import logger_callbacks
+    name = "with_logging"
+    logger_callbacks.configure_logging_default(name)
+    runner.on_specification_complete(logger_callbacks.logging_on_specification_complete_callback)
+    runner.on_specification_failure(logger_callbacks.logging_on_specification_failure_callback)
+    runner.run(name,specifications,SimpleExperiment(),continue_from_last_run=True)
 

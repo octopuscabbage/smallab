@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import pickle
@@ -9,6 +10,7 @@ from tqdm import tqdm
 
 from smallab.experiment import Experiment
 from smallab.utilities.hooks import format_exception
+from threading import RLock
 
 
 class ExperimentRunner(object):
@@ -21,6 +23,7 @@ class ExperimentRunner(object):
         self.on_batch_complete_function = None
         self.on_batch_failure_function = None
         self.experiment_folder = "experiment_runs/"
+        self.completed_lock = RLock()
 
     @staticmethod
     def __default_on_failure(exception: Exception,specification: typing.Dict):
@@ -83,15 +86,23 @@ class ExperimentRunner(object):
         :param specification: The specification of the current run
         :return: The filename to save this run under
         """
-        return os.path.join(self.get_save_directory(name), str(hash(json.dumps(specification, sort_keys=True))))
+        return os.path.join(self.get_save_directory(name), str(hash(json.dumps(specification, sort_keys=True))) + ".cmp")
+
+    def write_to_completed_json(self,name:typing.AnyStr,completed_specifications:typing.List[typing.Dict],failed_specifications:typing.List[typing.Dict]):
+        with self.completed_lock:
+            with open(os.path.join(self.get_save_directory(name),"completed.json"),'w') as f:
+                json.dump(completed_specifications,f)
+            with open(os.path.join(self.get_save_directory(name),"failed.json"),'w') as f:
+                json.dump(failed_specifications, f)
 
     def find_uncompleted_specifications(self,name, specifications):
         already_completed_specifications = []
 
         for fname in os.listdir(self.get_save_directory(name)):
-            with open(os.path.join(self.get_save_directory(name),fname),"rb") as f:
-                completed = pickle.load(f)
-            already_completed_specifications.append(completed["specification"])
+            if fname.endswith(".cmp"):
+                with open(os.path.join(self.get_save_directory(name),fname),"rb") as f:
+                    completed = pickle.load(f)
+                already_completed_specifications.append(completed["specification"])
 
         need_to_run_specifications = []
         for specification in specifications:
@@ -113,14 +124,15 @@ class ExperimentRunner(object):
         :param show_progress: Whether or not to show a progress bar for experiment completion
         :return: No return
         """
+        if not os.path.exists(self.get_save_directory(name)):
+            os.makedirs(self.get_save_directory(name))
+
         if continue_from_last_run:
             need_to_run_specifications = self.find_uncompleted_specifications(name,specifications)
         else:
             need_to_run_specifications = specifications
 
 
-        if not os.path.exists(self.get_save_directory(name)):
-            os.makedirs(self.get_save_directory(name))
 
         exceptions = []
         failed_specifications = []
@@ -132,9 +144,11 @@ class ExperimentRunner(object):
                 #Add to batch completions and failures
                 if exception_thrown is None:
                     completed_specifications.append(specification)
+                    self.write_to_completed_json(name,completed_specifications,failed_specifications)
                 else:
                     exceptions.append(exception_thrown)
                     failed_specifications.append(specification)
+                    self.write_to_completed_json(name, completed_specifications, failed_specifications)
         else:
             #Find the number of jobs to run
             if num_parallel is None:
@@ -154,9 +168,11 @@ class ExperimentRunner(object):
             for specification,exception_thrown in zip(specifications,exceptions_thrown):
                 if exception_thrown is None:
                     completed_specifications.append(specification)
+                    self.write_to_completed_json(name, completed_specifications, failed_specifications)
                 else:
                     exceptions.append(exception_thrown)
                     failed_specifications.append(exception_thrown)
+                    self.write_to_completed_json(name, completed_specifications, failed_specifications)
 
 
         #Call batch complete functions
