@@ -1,3 +1,6 @@
+from smallab.callbacks import PrintCallback
+from smallab.utilities.logger_callbacks import LoggingCallback
+
 if __name__ == "__main__":
 
     import typing
@@ -24,15 +27,14 @@ if __name__ == "__main__":
 
     runner = ExperimentRunner()
 
-    #Optional: Add an on complete hook!
-    runner.on_specification_complete(lambda specification, result: print(result["number"]))
 
     #Optional: Email yourself when the whole batch is done
     #Read https://stackoverflow.com/questions/5619914/sendmail-errno61-connection-refused about how to start an stmp serevr
-    from smallab.utilities.email_hooks import email_on_batch_sucesss
-    runner.on_batch_complete(email_on_batch_sucesss("test@example.com",smtp_port=1025))
+    from smallab.utilities.email_hooks import EmailCallbackBatchOnly
+
+    runner.attach_callbacks([EmailCallbackBatchOnly("test@test.com",40)])
     #Take it back off since we don't actually want to bother Mr. Test
-    runner.on_batch_complete(None)
+    runner.attach_callbacks([])
 
     #Set the specifications for our experiments, the author reccomends reading this from a json file!
     specifications = [{"seed": 1,"num_calls":1}, {"seed":2,"num_calls":1}]
@@ -97,9 +99,6 @@ if __name__ == "__main__":
 
     #You can use the provided logging callbacks to log completion and failure of specific specifcations
     from smallab.utilities import logger_callbacks
-    name = "with_logging"
-    logger_callbacks.configure_logging_default(name)
-    runner.on_specification_complete(logger_callbacks.logging_on_specification_complete_callback)
-    runner.on_specification_failure(logger_callbacks.logging_on_specification_failure_callback)
-    runner.run(name,SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True,num_parallel=None)
+    runner.attach_callbacks([LoggingCallback()])
+    runner.run('with_logging',SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True)
 

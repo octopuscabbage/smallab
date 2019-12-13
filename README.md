@@ -43,19 +43,20 @@ class SimpleExperiment(Experiment):
         random.seed(specification["seed"])
         for i in range(specification["num_calls"]): #Advance the random number generator some amount
            random.random()
+        if "fail" in specification and specification["fail"]:
+            raise Exception()
         return {"number":random.random()}
 
 runner = ExperimentRunner()
 
-#Optional: Add an on complete hook!
-runner.on_specification_complete(lambda specification, result: print(result["number"]))
 
 #Optional: Email yourself when the whole batch is done
 #Read https://stackoverflow.com/questions/5619914/sendmail-errno61-connection-refused about how to start an stmp serevr
-from smallab.utilities.email_hooks import email_on_batch_sucesss
-runner.on_batch_complete(email_on_batch_sucesss("test@example.com",smtp_port=1025))
+from smallab.utilities.email_hooks import EmailCallbackBatchOnly
+
+runner.attach_callbacks([EmailCallbackBatchOnly("test@test.com",40)])
 #Take it back off since we don't actually want to bother Mr. Test
-runner.on_batch_complete(None)
+runner.attach_callbacks([])
 
 #Set the specifications for our experiments, the author reccomends reading this from a json file!
 specifications = [{"seed": 1,"num_calls":1}, {"seed":2,"num_calls":1}]
@@ -64,12 +65,13 @@ specifications = [{"seed": 1,"num_calls":1}, {"seed":2,"num_calls":1}]
 runner.run("random_number",specifications,SimpleExperiment())
 
 #Read back our results
-for fname in os.listdir(runner.get_batch_save_folder("random_number")):
-    if "json" not in fname: #don't read back the completed file
-        with open(os.path.join(runner.get_batch_save_folder("random_number"), fname), "rb") as f:
-            results = pickle.load(f)
-            print(results["specification"]["seed"])
-            print(results["result"]["number"])
+for root,_,files in os.walk(runner.get_save_directory("random_number")):
+    for fname in files:
+        if ".pkl" in fname:
+            with open(os.path.join(root, fname), "rb") as f:
+                results = pickle.load(f)
+                print(results["specification"]["seed"])
+                print(results["result"]["number"])
 
 
 from smallab.specification_generator import SpecificationGenerator
@@ -84,13 +86,43 @@ print(specifications)
 runner.run("random_number_from_generator",specifications,SimpleExperiment(),continue_from_last_run=True)
 
 #Read back our results
-for fname in os.listdir(runner.get_batch_save_folder("random_number_from_generator")):
-    if "json" not in fname: #don't read back the completed file
-        with open(os.path.join(runner.get_batch_save_folder("random_number_from_generator"), fname), "rb") as f:
-            results = pickle.load(f)
-            print(results["specification"]["seed"])
-            print(results["result"]["number"])
+for root,_,files in os.walk(runner.get_save_directory("random_number_from_generator")):
+    for fname in files:
+        if ".pkl" in fname:
+            with open(os.path.join(root, fname), "rb") as f:
+                results = pickle.load(f)
+                print(results["specification"]["seed"])
+                print(results["result"]["number"])
 
+#If you have an experiment you want run on a lot of computers you can use the MultiComputerGenerator
+#You assign each computer a number from 0..number_of_computers-1 and it gives each computer every number_of_computerth specification
+from smallab.specification_generator import MultiComputerGenerator
+all_specifications = SpecificationGenerator().from_json_file('test.json')
+
+g1 = MultiComputerGenerator(0,2)
+g2 = MultiComputerGenerator(1,2)
+specifications_1 = g1.from_json_file("test.json")
+specifications_2 = g2.from_json_file("test.json")
+
+
+assert len(specifications_1) + len(specifications_2) == len(all_specifications)
+
+#Need to freeze the sets in order to do set manipulation on dictionaries
+specifications_1 = set([frozenset(sorted(x.items())) for x in specifications_1])
+specifications_2 = set([frozenset(sorted(x.items())) for x in specifications_2])
+all_specifications = set([frozenset(sorted(x.items())) for x in all_specifications])
+
+#This will generate two disjoint sets of specifications
+assert specifications_1.isdisjoint(specifications_2)
+#That together make the whole specification
+assert specifications_1.union(specifications_2) == all_specifications
+
+
+
+#You can use the provided logging callbacks to log completion and failure of specific specifcations
+from smallab.utilities import logger_callbacks
+runner.attach_callbacks([LoggingCallback()])
+runner.run('with_logging',SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True)
 ```
 
 ## How it works

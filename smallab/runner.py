@@ -8,6 +8,7 @@ from multiprocessing import cpu_count
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
+from smallab.callbacks import CallbackManager, PrintCallback
 from smallab.experiment import Experiment
 from smallab.utilities.hooks import format_exception
 
@@ -17,48 +18,17 @@ class ExperimentRunner(object):
     The class which runs the batch of experiments
     """
     def __init__(self):
-        self.on_specification_complete_function = None
-        self.on_specification_failure_function = ExperimentRunner.__default_on_failure
-        self.on_batch_complete_function = None
-        self.on_batch_failure_function = None
         self.experiment_folder = "experiment_runs/"
+        self.callbacks = [PrintCallback]
 
-    @staticmethod
-    def __default_on_failure(exception: Exception,specification: typing.Dict):
-        print("!!! Failure !!!")
-        print(specification)
-        print(format_exception(exception))
+    def attach_callbacks(self, callbacks: typing.List[CallbackManager]):
+        """
+        Attach callback handlers to this runner object, will call them in order they are presented
+        :param args:
+        :return:
+        """
+        self.callbacks = callbacks
 
-    def on_specification_complete(self, f: typing.Callable[[typing.Dict, typing.Dict], typing.NoReturn]) -> typing.NoReturn:
-        """
-        Sets a method to be called on the completion of each experiment
-        :param f: A function to be called on the completiong of each experiment. It is passed the specification and the result and returns nothing
-        :return: No return
-        """
-        self.on_specification_complete_function = f
-
-    def on_specification_failure(self, f: typing.Callable[[Exception, typing.Dict], typing.NoReturn]) -> typing.NoReturn:
-        """
-        Sets a method to be called on the failure of each experiment
-        :param f: A function called when an experiment fails. It is passed the exception raised and the specification for that experiment and returns nothing
-        :return: No Return
-        """
-        self.on_specification_failure_function = f
-
-    def on_batch_complete(self, f: typing.Callable[[typing.List[typing.Dict]],typing.NoReturn]) -> typing.NoReturn:
-        """
-        Sets a method to be called on the completion of all specifications provided to run
-        :param f: The function to call. It is passed a list of specifications which were completed
-        :return: No return
-        """
-        self.on_batch_complete_function = f
-    def on_batch_failure(self, f: typing.Callable[[typing.List[Exception],typing.List[typing.Dict]],typing.NoReturn]) -> typing.NoReturn:
-        """
-        Sets a method to be called when 1 or more specifications failed to complete (Threw an exception
-        :param f: The function to call. It is passed a list of exceptions and a list of specifications. The ith exception is the exception that was thrown for the ith specification
-        :return: No return
-        """
-        self.on_batch_failure_function = f
     def set_experiment_folder(self, folder: typing.AnyStr) -> typing.NoReturn:
         """
         Sets the folder where experiments will be stored
@@ -147,7 +117,8 @@ class ExperimentRunner(object):
             need_to_run_specifications = self._find_uncompleted_specifications(name, specifications)
         else:
             need_to_run_specifications = specifications
-
+        for callback in self.callbacks:
+            callback.set_experiment_name(name)
         exceptions = []
         failed_specifications = []
         completed_specifications = []
@@ -190,26 +161,29 @@ class ExperimentRunner(object):
 
 
         #Call batch complete functions
-        if exceptions and self.on_batch_failure_function is not None:
-            self.on_batch_failure_function(exceptions,failed_specifications)
+        if exceptions:
+            for callback in self.callbacks:
+                callback.on_batch_failure(exceptions,failed_specifications)
 
-        if completed_specifications and self.on_batch_complete_function is not None:
-            self.on_batch_complete_function(specifications)
+        if completed_specifications :
+            for callback in self.callbacks:
+                callback.on_batch_complete(specifications)
 
 
     def __run_and_save(self, name, experiment, specification,dont_catch_exceptions):
         def _interior_fn():
             result = experiment.main(specification)
             self._save_run(name, specification, result)
-            if self.on_specification_complete_function is not None:
-                self.on_specification_complete_function(specification, result)
+            for callback in self.callbacks:
+                callback.on_specification_complete(specification, result)
             return None
 
         if not dont_catch_exceptions:
             try:
                 _interior_fn()
             except Exception as e:
-                self.on_specification_failure_function(e, specification)
+                for callback in self.callbacks:
+                    callback.on_specification_failure(e, specification)
                 return e
         else:
             _interior_fn()
