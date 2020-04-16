@@ -20,10 +20,11 @@ from smallab.callbacks import CallbackManager, PrintCallback
 from smallab.experiment import Experiment
 from smallab.utilities.hooks import format_exception
 from smallab.utilities.logging_callback import LoggingCallback
+import humanhash
 
 
 def specification_hash(specification):
-    return str(hash(json.dumps(specification, sort_keys=True)))
+    return str(humanhash.humanize(str(hash(json.dumps(specification, sort_keys=True)))))
 
 
 class ExperimentRunner(object):
