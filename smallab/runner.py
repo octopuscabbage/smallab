@@ -1,4 +1,8 @@
 import datetime
+import logging
+from copy import deepcopy
+
+import enum
 import json
 import os
 import pickle
@@ -6,20 +10,31 @@ import typing
 from multiprocessing import cpu_count
 
 from joblib import Parallel, delayed
+
+from smallab.runner_implementations.abstract_runner import AbstractRunner
+from smallab.runner_implementations.joblib_runner import JoblibRunner
+from smallab.runner_implementations.main_process_runner import MainRunner
 from tqdm import tqdm
 
 from smallab.callbacks import CallbackManager, PrintCallback
 from smallab.experiment import Experiment
 from smallab.utilities.hooks import format_exception
+from smallab.utilities.logging_callback import LoggingCallback
+
+
+def specification_hash(specification):
+    return str(hash(json.dumps(specification, sort_keys=True)))
 
 
 class ExperimentRunner(object):
     """
     The class which runs the batch of experiments
     """
+
     def __init__(self):
         self.experiment_folder = "experiment_runs/"
-        self.callbacks = [PrintCallback]
+        self.callbacks = [LoggingCallback()]
+        self.logging_callback_attached = False
 
     def attach_callbacks(self, callbacks: typing.List[CallbackManager]):
         """
@@ -27,6 +42,10 @@ class ExperimentRunner(object):
         :param args:
         :return:
         """
+        self.logging_callback_attached = False
+        for callback in callbacks:
+            if isinstance(callback, LoggingCallback):
+                self.logging_callback_attached = True
         self.callbacks = callbacks
 
     def set_experiment_folder(self, folder: typing.AnyStr) -> typing.NoReturn:
@@ -47,6 +66,9 @@ class ExperimentRunner(object):
         """
         return os.path.join(self.experiment_folder, name)
 
+    def get_experiment_save_directory(self,name):
+        return os.path.join(self.get_save_directory(name),"experiments")
+
     def get_pkl_file_location(self, name: typing.AnyStr, specification: typing.Dict) -> typing.AnyStr:
         """
         Get the filename to save the file under
@@ -54,52 +76,63 @@ class ExperimentRunner(object):
         :param specification: The specification of the current run
         :return: The filename to save this run under
         """
-        return os.path.join(self.get_save_file_directory(name,specification), str(hash(json.dumps(specification, sort_keys=True))) + ".pkl")
+        return os.path.join(self.get_save_file_directory(name, specification),
+                            str(hash(json.dumps(specification, sort_keys=True))) + ".pkl")
 
-    def get_specification_file_location(self,name: typing.AnyStr,specification: typing.Dict) -> typing.AnyStr:
+    def get_json_file_location(self, name, specification):
+        return os.path.join(self.get_save_file_directory(name, specification),
+                            str(hash(json.dumps(specification, sort_keys=True))) + ".json")
+
+    def get_specification_file_location(self, name: typing.AnyStr, specification: typing.Dict) -> typing.AnyStr:
         """
         Get the specification file location
         :param name: The name of the current batch
         :param specification: The specification of the current run
         :return: The location where the specification.json should be saved
         """
-        return os.path.join(self.get_save_file_directory(name, specification),"specification.json")
+        return os.path.join(self.get_save_file_directory(name, specification), "specification.json")
 
-    def get_save_file_directory(self,name: typing.AnyStr,specification: typing.Dict) -> typing.AnyStr:
+    def get_save_file_directory(self, name: typing.AnyStr, specification: typing.Dict) -> typing.AnyStr:
         """
         Get the folder to save the .pkl file and specification.json file under
         :param name: The name of the current batch
         :param specification: The specification of the current run
         :return: The location where specification.json should be saved
         """
-        return os.path.join(self.get_save_directory(name),
-                            str(hash(json.dumps(specification, sort_keys=True))))
+        return os.path.join(self.get_experiment_save_directory(name), specification_hash(specification))
 
-    def _write_to_completed_json(self, name:typing.AnyStr, completed_specifications:typing.List[typing.Dict], failed_specifications:typing.List[typing.Dict]):
-        with open(os.path.join(self.get_save_directory(name),"completed.json"),'w') as f:
-            json.dump(completed_specifications,f)
-        with open(os.path.join(self.get_save_directory(name),"failed.json"),'w') as f:
+    def _write_to_completed_json(self, name: typing.AnyStr, completed_specifications: typing.List[typing.Dict],
+                                 failed_specifications: typing.List[typing.Dict]):
+        with open(os.path.join(self.get_save_directory(name), "completed.json"), 'w') as f:
+            json.dump(completed_specifications, f)
+        with open(os.path.join(self.get_save_directory(name), "failed.json"), 'w') as f:
             json.dump(failed_specifications, f)
 
     def _find_uncompleted_specifications(self, name, specifications):
         already_completed_specifications = []
-        for root, _, files in os.walk(self.get_save_directory(name)):
+        for root, _, files in os.walk(self.get_experiment_save_directory(name)):
             for fname in files:
                 if ".pkl" in fname:
-                    with open(os.path.join(root,fname),"rb") as f:
+                    with open(os.path.join(root, fname), "rb") as f:
                         completed = pickle.load(f)
                     already_completed_specifications.append(completed["specification"])
+                if ".json" in fname and fname != 'specification.json':
+                    with open(os.path.join(root, fname), "r") as f:
+                        completed = json.load(f)
+                    already_completed_specifications.append(completed["specification"])
+
 
         need_to_run_specifications = []
         for specification in specifications:
             if specification in already_completed_specifications:
-                print("Skipping: " + str(specification))
+                logging.getLogger("smallab").info("Skipping: " + str(specification))
             else:
                 need_to_run_specifications.append(specification)
         return need_to_run_specifications
 
     def run(self, name: typing.AnyStr, specifications: typing.List[typing.Dict], experiment: Experiment,
-            continue_from_last_run=True, num_parallel=1, show_progress=True, dont_catch_exceptions=False) -> typing.NoReturn:
+            continue_from_last_run=True, num_parallel=1, show_progress=True, dont_catch_exceptions=False,
+            force_pickle=False, specification_runner: AbstractRunner = JoblibRunner()) -> typing.NoReturn:
         """
         The method called to run an experiment
         :param name: The name of this experiment batch
@@ -108,8 +141,27 @@ class ExperimentRunner(object):
         :param continue_from_last_run: If true, will not redo already completed experiments. Defaults to true
         :param num_parallel: The number of experiments to run in parallel. 1 is don't run in parallel. Defaults to 1. None is use all available.
         :param show_progress: Whether or not to show a progress bar for experiment completion
+        :param force_pickle: If true, don't attempt to json serialze results and default to pickling
+        :param specification_runner: An instance of ```AbstractRunner``` that will be used to run the specification
         :return: No return
         """
+        # Set up root smallab logger
+        folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
+        file_loc = os.path.join(folder_loc, "main.log")
+        if not os.path.exists(folder_loc):
+            os.makedirs(folder_loc)
+        logger = logging.getLogger("smallab")
+        logger.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        fh = logging.FileHandler(file_loc)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+        sh = logging.StreamHandler()
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
+        experiment.set_logging_folder(folder_loc)
+
+        self.force_pickle = force_pickle
         if not os.path.exists(self.get_save_directory(name)):
             os.makedirs(self.get_save_directory(name))
 
@@ -119,58 +171,44 @@ class ExperimentRunner(object):
             need_to_run_specifications = specifications
         for callback in self.callbacks:
             callback.set_experiment_name(name)
-        exceptions = []
-        failed_specifications = []
-        completed_specifications = []
-        if num_parallel == 1:
-            for specification in tqdm(need_to_run_specifications, desc="Experiments", disable=not show_progress):
-                exception_thrown = self.__run_and_save(name, experiment, specification,dont_catch_exceptions)
 
-                #Add to batch completions and failures
-                if exception_thrown is None:
-                    completed_specifications.append(specification)
-                    self._write_to_completed_json(name, completed_specifications, failed_specifications)
-                else:
-                    exceptions.append(exception_thrown)
-                    failed_specifications.append(specification)
-                    self._write_to_completed_json(name, completed_specifications, failed_specifications)
+        # Find the number of jobs to run
+        if num_parallel is None:
+            cores_to_use = min(cpu_count(), len(specifications))
         else:
-            #Find the number of jobs to run
-            if num_parallel is None:
-                cores_to_use = min(cpu_count(), len(specifications))
-            else:
-                cores_to_use = min(num_parallel,len(specifications))
-            #Begin to run everything in joblib
-            with tqdm(total=len(need_to_run_specifications)) as pbar:
-                def parallel_f(name,experiment,specification):
-                    self.__run_and_save(name, experiment, specification,dont_catch_exceptions)
-                    pbar.update(1)
-                exceptions_thrown = Parallel(n_jobs=cores_to_use, prefer="threads")(
-                    delayed(lambda specification: parallel_f(name, experiment, specification))(specification) for
-                    specification in need_to_run_specifications)
+            cores_to_use = min(num_parallel, len(specifications))
+        specification_runner.set_num_concurrency_to_use(cores_to_use)
 
-            #Look through output to create batch failures and sucesses
-            for specification,exception_thrown in zip(specifications,exceptions_thrown):
-                if exception_thrown is None:
-                    completed_specifications.append(specification)
-                    self._write_to_completed_json(name, completed_specifications, failed_specifications)
-                else:
-                    exceptions.append(exception_thrown)
-                    failed_specifications.append(exception_thrown)
-                    self._write_to_completed_json(name, completed_specifications, failed_specifications)
+        specification_runner.run(need_to_run_specifications,
+                                 lambda specification: self.__run_and_save(name, experiment, specification,
+                                                                           dont_catch_exceptions))
+        self._write_to_completed_json(name, specification_runner.get_completed(),
+                                      specification_runner.get_failed_specifications())
 
-
-        #Call batch complete functions
-        if exceptions:
+        # Call batch complete functions
+        if specification_runner.get_exceptions() != []:
             for callback in self.callbacks:
-                callback.on_batch_failure(exceptions,failed_specifications)
+                callback.on_batch_failure(specification_runner.get_exceptions(),
+                                          specification_runner.get_failed_specifications())
 
-        if completed_specifications :
+        if specification_runner.get_completed() != []:
             for callback in self.callbacks:
-                callback.on_batch_complete(specifications)
+                callback.on_batch_complete(specification_runner.get_completed())
 
+    def __run_and_save(self, name, experiment, specification, dont_catch_exceptions):
+        experiment = deepcopy(experiment)
+        specification_id = specification_hash(specification)
+        logger = logging.getLogger(f"smallab.experiment.{specification_id}")
+        logger.setLevel(logging.INFO)
+        file_handler = logging.FileHandler(f"{experiment.get_logging_folder()}/{specification_id}.log")
+        #stream_handler = logging.StreamHandler()
+        formatter = logging.Formatter(f"%(asctime)s [%(levelname)-5.5s]  %(message)s")
+        #stream_handler.setFormatter(formatter)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
 
-    def __run_and_save(self, name, experiment, specification,dont_catch_exceptions):
+        experiment.set_logger(logger)
+
         def _interior_fn():
             result = experiment.main(specification)
             self._save_run(name, specification, result)
@@ -190,10 +228,18 @@ class ExperimentRunner(object):
             return None
 
     def _save_run(self, name, specification, result):
-        os.makedirs(self.get_save_file_directory(name,specification))
+        os.makedirs(self.get_save_file_directory(name, specification))
         output_dictionary = {"specification": specification, "result": result}
-        with open(self.get_pkl_file_location(name, specification), "wb") as f:
-            pickle.dump(output_dictionary, f)
-        with open(self.get_specification_file_location(name,specification),"w") as f:
-            json.dump(specification,f)
-
+        json_serialize_was_successful = False
+        if not self.force_pickle:
+            try:
+                with open(self.get_json_file_location(name, specification), "w") as f:
+                    json.dump(output_dictionary, f)
+                json_serialize_was_successful = True
+            except Exception as e:
+                pass
+        if self.force_pickle or not json_serialize_was_successful:
+            with open(self.get_pkl_file_location(name, specification), "wb") as f:
+                pickle.dump(output_dictionary, f)
+            with open(self.get_specification_file_location(name, specification), "w") as f:
+                json.dump(specification, f)

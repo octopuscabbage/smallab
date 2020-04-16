@@ -1,5 +1,8 @@
+import json
+
 from smallab.callbacks import PrintCallback
-from smallab.utilities.logger_callbacks import LoggingCallback
+from smallab.runner_implementations.main_process_runner import MainRunner
+from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 
 if __name__ == "__main__":
 
@@ -18,6 +21,7 @@ if __name__ == "__main__":
         #Need to implement this method, will be passed the specification
         #Return a dictionary of results
         def main(self, specification: typing.Dict) -> typing.Dict:
+            self.get_logger().info("Doing work!")
             random.seed(specification["seed"])
             for i in range(specification["num_calls"]): #Advance the random number generator some amount
                random.random()
@@ -42,12 +46,13 @@ if __name__ == "__main__":
     #Fire off the experiment
     runner.run("random_number",specifications,SimpleExperiment())
 
-    #Read back our results
-    for root,_,files in os.walk(runner.get_save_directory("random_number")):
+    #Read back our results. Smallab will attempt to save the file in json format so you can easily read
+    #it but will fall back to pickle if necessary.
+    for root,_,files in os.walk(runner.get_experiment_save_directory("random_number")):
         for fname in files:
-            if ".pkl" in fname:
-                with open(os.path.join(root, fname), "rb") as f:
-                    results = pickle.load(f)
+            if ".json" in fname:
+                with open(os.path.join(root, fname), "r") as f:
+                    results = json.load(f)
                     print(results["specification"]["seed"])
                     print(results["result"]["number"])
 
@@ -98,7 +103,6 @@ if __name__ == "__main__":
 
 
     #You can use the provided logging callbacks to log completion and failure of specific specifcations
-    from smallab.utilities import logger_callbacks
-    runner.attach_callbacks([LoggingCallback()])
-    runner.run('with_logging',SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True)
+
+    runner.run('with_logging',SpecificationGenerator().from_json_file("test.json"),SimpleExperiment(),continue_from_last_run=True,specification_runner=MultiprocessingRunner())
 
