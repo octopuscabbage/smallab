@@ -1,26 +1,20 @@
 import datetime
-import logging
-from copy import deepcopy
-
-import enum
 import json
-import os
+import logging
 import pickle
 import typing
 from multiprocessing import cpu_count
 
-from joblib import Parallel, delayed
+import humanhash
+import os
+from copy import deepcopy
 
+from smallab.callbacks import CallbackManager
+from smallab.experiment import Experiment
 from smallab.runner_implementations.abstract_runner import AbstractRunner
 from smallab.runner_implementations.joblib_runner import JoblibRunner
-from smallab.runner_implementations.main_process_runner import MainRunner
-from tqdm import tqdm
-
-from smallab.callbacks import CallbackManager, PrintCallback
-from smallab.experiment import Experiment
-from smallab.utilities.hooks import format_exception
+from smallab.types import Specification
 from smallab.utilities.logging_callback import LoggingCallback
-import humanhash
 
 
 def specification_hash(specification):
@@ -29,7 +23,7 @@ def specification_hash(specification):
 
 class ExperimentRunner(object):
     """
-    The class which runs the batch of experiments
+    The class which runs the batch of specifications.
     """
 
     def __init__(self):
@@ -40,7 +34,6 @@ class ExperimentRunner(object):
     def attach_callbacks(self, callbacks: typing.List[CallbackManager]):
         """
         Attach callback handlers to this runner object, will call them in order they are presented
-        :param args:
         :return:
         """
         self.logging_callback_attached = False
@@ -67,8 +60,8 @@ class ExperimentRunner(object):
         """
         return os.path.join(self.experiment_folder, name)
 
-    def get_experiment_save_directory(self,name):
-        return os.path.join(self.get_save_directory(name),"experiments")
+    def get_experiment_save_directory(self, name):
+        return os.path.join(self.get_save_directory(name), "experiments")
 
     def get_pkl_file_location(self, name: typing.AnyStr, specification: typing.Dict) -> typing.AnyStr:
         """
@@ -93,7 +86,7 @@ class ExperimentRunner(object):
         """
         return os.path.join(self.get_save_file_directory(name, specification), "specification.json")
 
-    def get_save_file_directory(self, name: typing.AnyStr, specification: typing.Dict) -> typing.AnyStr:
+    def get_save_file_directory(self, name: typing.AnyStr, specification: Specification) -> typing.AnyStr:
         """
         Get the folder to save the .pkl file and specification.json file under
         :param name: The name of the current batch
@@ -102,8 +95,14 @@ class ExperimentRunner(object):
         """
         return os.path.join(self.get_experiment_save_directory(name), specification_hash(specification))
 
-    def _write_to_completed_json(self, name: typing.AnyStr, completed_specifications: typing.List[typing.Dict],
-                                 failed_specifications: typing.List[typing.Dict]):
+    def _write_to_completed_json(self, name: typing.AnyStr, completed_specifications: typing.List[Specification],
+                                 failed_specifications: typing.List[Specification]):
+        """
+        Writes out a file which shows the completed and failed specifications
+        :param name: The name of the current batch
+        :param completed_specifications:  Specifications which completed successfully
+        :param failed_specifications:  Specifications which failed
+        """
         with open(os.path.join(self.get_save_directory(name), "completed.json"), 'w') as f:
             json.dump(completed_specifications, f)
         with open(os.path.join(self.get_save_directory(name), "failed.json"), 'w') as f:
@@ -121,7 +120,6 @@ class ExperimentRunner(object):
                     with open(os.path.join(root, fname), "r") as f:
                         completed = json.load(f)
                     already_completed_specifications.append(completed["specification"])
-
 
         need_to_run_specifications = []
         for specification in specifications:
@@ -202,9 +200,9 @@ class ExperimentRunner(object):
         logger = logging.getLogger(f"smallab.experiment.{specification_id}")
         logger.setLevel(logging.INFO)
         file_handler = logging.FileHandler(f"{experiment.get_logging_folder()}/{specification_id}.log")
-        #stream_handler = logging.StreamHandler()
+        # stream_handler = logging.StreamHandler()
         formatter = logging.Formatter(f"%(asctime)s [%(levelname)-5.5s]  %(message)s")
-        #stream_handler.setFormatter(formatter)
+        # stream_handler.setFormatter(formatter)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 

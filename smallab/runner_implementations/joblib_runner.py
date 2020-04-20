@@ -2,21 +2,25 @@ import logging
 import typing
 
 from joblib import Parallel, delayed
-from smallab.experiment import Experiment
 from tqdm import tqdm
 
 from smallab.runner_implementations.abstract_runner import AbstractRunner
+from smallab.types import Specification
 from smallab.utilities.tqdm_to_logger import TqdmToLogger
 
 
 class JoblibRunner(AbstractRunner):
+    """
+    Runs the Specifications in parallel on threads using joblib
+    """
 
-    def run(self, specifications_to_run: typing.List[typing.Dict],
-            run_and_save_fn: typing.Callable[[typing.Dict], typing.Union[None, Exception]]):
+    def run(self, specifications_to_run: typing.List[Specification],
+            run_and_save_fn: typing.Callable[[Specification], typing.Union[None, Exception]]):
         completed_specifications = []
         failed_specifications = []
         exceptions = []
-        with tqdm(total=len(specifications_to_run),file=TqdmToLogger(logging.getLogger("smallab")),desc="Running Specifications") as pbar:
+        with tqdm(total=len(specifications_to_run), file=TqdmToLogger(logging.getLogger("smallab")),
+                  desc="Running Specifications") as pbar:
             def parallel_f(specification):
                 run_and_save_fn(specification)
                 pbar.update(1)
@@ -32,5 +36,4 @@ class JoblibRunner(AbstractRunner):
             else:
                 exceptions.append(exception_thrown)
                 failed_specifications.append(specification)
-        self.finish(completed_specifications,failed_specifications,exceptions)
-
+        self.finish(completed_specifications, failed_specifications, exceptions)

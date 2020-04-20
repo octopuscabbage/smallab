@@ -1,19 +1,16 @@
-
-import datetime
 import logging
 import logging.config
-import os
+import pprint
 import traceback
 import typing
-import pprint
 
 from smallab.callbacks import CallbackManager
+
 
 class LoggingCallback(CallbackManager):
     @staticmethod
     def pretty_printer():
         return pprint.PrettyPrinter()
-
 
     def on_specification_complete(self, specification: typing.Dict, result: typing.Dict) -> typing.NoReturn:
         pp = LoggingCallback.pretty_printer()

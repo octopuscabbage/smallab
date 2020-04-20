@@ -5,23 +5,23 @@ import typing
 import dill
 
 from smallab.runner_implementations.abstract_runner import AbstractRunner
+from smallab.types import Specification
+
 
 def run_dill_encoded(payload):
     fun, args = dill.loads(payload)
     return fun(*args)
+
 
 def apply_async(pool, fun, args):
     payload = dill.dumps((fun, args))
     return pool.apply_async(run_dill_encoded, (payload,))
 
 
-
-
-def parallel_f(specification,run_and_save_fn,idx,max_num,counter,seconds_completion):
+def parallel_f(specification, run_and_save_fn, idx, max_num, counter, seconds_completion):
     alpha = .8
     logger = logging.getLogger("smallab")
     time_str = "%d-%b-%Y (%H:%M:%S.%f)"
-    # experiment.configure_logger(queue)
     beginning = datetime.datetime.now()
     beginning_string = beginning.strftime(time_str)
     logger.info(f"Begin job {idx} / {max_num} @ {beginning_string}")
@@ -42,28 +42,29 @@ def parallel_f(specification,run_and_save_fn,idx,max_num,counter,seconds_complet
 
 
 class MultiprocessingRunner(AbstractRunner):
-    def __init__(self,mp_override=None):
+    """
+    A runner which uses a multiprocessing pool to manage specification running
+    """
+
+    def __init__(self, mp_override=None):
         """
-        A runner which uses a multiprocessing pool to manage specification running
         :param mp_override: provide multiprocessing library that should be used. This is done because pytorch has a funky multiprocessing library that could be pased in here
         """
-        #import multiprocessing_logging
-        #multiprocessing_logging.install_mp_handler()
         if mp_override is not None:
             self.mp = mp_override
         else:
             import multiprocessing
             self.mp = multiprocessing
 
-    def run(self, specifications_to_run: typing.List[typing.Dict],
-            run_and_save_fn: typing.Callable[[typing.Dict], typing.Union[None, Exception]]):
+    def run(self, specifications_to_run: typing.List[Specification],
+            run_and_save_fn: typing.Callable[[Specification], typing.Union[None, Exception]]):
         pool = self.mp.Pool(self.num_cores)
         manager = self.mp.Manager()
         counter = manager.Value('i', 0)
         seconds_completion = manager.Value("d", 0)
-        def interior_fn(specification):
-            return parallel_f(specification, run_and_save_fn,idx + 1, max_num, counter, seconds_completion)
 
+        def interior_fn(specification):
+            return parallel_f(specification, run_and_save_fn, idx + 1, max_num, counter, seconds_completion)
 
         # listener.start()
         jobs = []
@@ -82,7 +83,4 @@ class MultiprocessingRunner(AbstractRunner):
             else:
                 exceptions.append(exception_thrown)
                 failed_specifications.append(specification)
-        self.finish(completed_specifications,failed_specifications,exceptions)
-
-
-
+        self.finish(completed_specifications, failed_specifications, exceptions)
