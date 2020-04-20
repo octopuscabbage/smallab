@@ -9,6 +9,8 @@ verify_ssl = true
 numpy = "*"
 tqdm = "*"
 joblib = "*"
+humanhash3 = "*"
+dill = "*"
 
 [requires]
 python_version = "3.6"

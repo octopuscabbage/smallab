@@ -1,8 +1,10 @@
-import copy
-import itertools
-import typing
-import json
 import collections
+import itertools
+import json
+import typing
+
+import copy
+
 
 class SpecificationGenerator:
     def generate(self, generation_specification: typing.Dict) -> typing.List[collections.OrderedDict]:
@@ -49,9 +51,9 @@ class SpecificationGenerator:
         '''
         generation_specification = collections.OrderedDict(sorted(generation_specification.items()))
         iterators = []
-        for key,value in generation_specification.items():
-            if isinstance(value,list):
-                iterators.append(list(map(lambda x: (key,x),value)))
+        for key, value in generation_specification.items():
+            if isinstance(value, list):
+                iterators.append(list(map(lambda x: (key, x), value)))
         specifications = []
         for updates in itertools.product(*iterators):
             cur_j = copy.deepcopy(generation_specification)
@@ -60,7 +62,7 @@ class SpecificationGenerator:
             specifications.append(cur_j)
         return specifications
 
-    def from_json_file(self,fp:typing.AnyStr) -> typing.List[typing.Dict]:
+    def from_json_file(self, fp: typing.AnyStr) -> typing.List[typing.Dict]:
         with open(fp) as f:
             j = json.load(f)
         if isinstance(j, list):
@@ -70,6 +72,7 @@ class SpecificationGenerator:
             return out
         else:
             return self.generate(j)
+
 
 class MultiComputerGenerator(SpecificationGenerator):
     def __init__(self, computer_number, number_of_computers):
@@ -91,4 +94,3 @@ class MultiComputerGenerator(SpecificationGenerator):
 
     def generate(self, generation_specification: typing.Dict) -> typing.List[typing.Dict]:
         return self.shard(super().generate(generation_specification))
-
