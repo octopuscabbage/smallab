@@ -1,5 +1,7 @@
 import json
+import threading
 
+from smallab.runner_implementations.main_process_runner import MainRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 
 if __name__ == "__main__":
@@ -26,7 +28,6 @@ if __name__ == "__main__":
             if "fail" in specification and specification["fail"]:
                 raise Exception()
             return {"number": random.random()}
-
 
     runner = ExperimentRunner()
 

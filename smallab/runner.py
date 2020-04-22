@@ -5,6 +5,7 @@ import pickle
 import typing
 from multiprocessing import cpu_count
 
+import hashlib
 import humanhash
 import os
 from copy import deepcopy
@@ -18,7 +19,7 @@ from smallab.utilities.logging_callback import LoggingCallback
 
 
 def specification_hash(specification):
-    return str(humanhash.humanize(str(hash(json.dumps(specification, sort_keys=True)))))
+    return humanhash.humanize(hashlib.md5(json.dumps(specification, sort_keys=True).encode("utf-8")).hexdigest())
 
 
 class ExperimentRunner(object):
@@ -210,7 +211,7 @@ class ExperimentRunner(object):
 
         def _interior_fn():
             result = experiment.main(specification)
-            self._save_run(name, specification, result)
+            self._save_run(name,experiment, specification, result)
             for callback in self.callbacks:
                 callback.on_specification_complete(specification, result)
             return None
@@ -226,19 +227,31 @@ class ExperimentRunner(object):
             _interior_fn()
             return None
 
-    def _save_run(self, name, specification, result):
+    def _save_run(self, name, experiment,specification, result):
         os.makedirs(self.get_save_file_directory(name, specification))
         output_dictionary = {"specification": specification, "result": result}
         json_serialize_was_successful = False
+        #Try json serialization
         if not self.force_pickle:
+            json_filename = self.get_json_file_location(name, specification)
             try:
-                with open(self.get_json_file_location(name, specification), "w") as f:
+                with open(json_filename, "w") as f:
                     json.dump(output_dictionary, f)
                 json_serialize_was_successful = True
-            except Exception as e:
-                pass
+            except Exception:
+                experiment.get_logger().warning("Json serialization failed with exception",exc_info=True)
+                os.remove(json_filename)
+        #Try pickle serialization
         if self.force_pickle or not json_serialize_was_successful:
-            with open(self.get_pkl_file_location(name, specification), "wb") as f:
-                pickle.dump(output_dictionary, f)
-            with open(self.get_specification_file_location(name, specification), "w") as f:
-                json.dump(specification, f)
+            pickle_file_location = self.get_pkl_file_location(name, specification)
+            specification_file_location = self.get_specification_file_location(name, specification)
+            try:
+                with open(pickle_file_location, "wb") as f:
+                    pickle.dump(output_dictionary, f)
+                with open(specification_file_location, "w") as f:
+                    json.dump(specification, f)
+            except Exception:
+                experiment.get_logger().critical("Experiment results serialization failed!!!",exc_info=True)
+                os.remove(pickle_file_location)
+                os.remove(specification_file_location)
+
