@@ -11,6 +11,7 @@ required = [
     'joblib',
     'numpy',
     'tqdm',
+    'humanhash3'
 ]
 
 setup(
