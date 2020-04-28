@@ -14,6 +14,9 @@ class JoblibRunner(AbstractRunner):
     Runs the Specifications in parallel on threads using joblib
     """
 
+    def __init__(self, num_parallel):
+        self.num_parallel = num_parallel
+
     def run(self, specifications_to_run: typing.List[Specification],
             run_and_save_fn: typing.Callable[[Specification], typing.Union[None, Exception]]):
         completed_specifications = []
@@ -25,7 +28,7 @@ class JoblibRunner(AbstractRunner):
                 run_and_save_fn(specification)
                 pbar.update(1)
 
-            exceptions_thrown = Parallel(n_jobs=self.num_cores, prefer="threads")(
+            exceptions_thrown = Parallel(n_jobs=self.num_parallel, prefer="threads")(
                 delayed(lambda specification: parallel_f(specification))(specification) for
                 specification in specifications_to_run)
 

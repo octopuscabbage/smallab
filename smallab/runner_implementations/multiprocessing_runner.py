@@ -46,7 +46,7 @@ class MultiprocessingRunner(AbstractRunner):
     A runner which uses a multiprocessing pool to manage specification running
     """
 
-    def __init__(self, mp_override=None):
+    def __init__(self, mp_override=None, num_parallel=None):
         """
         :param mp_override: provide multiprocessing library that should be used. This is done because pytorch has a funky multiprocessing library that could be pased in here
         """
@@ -55,10 +55,11 @@ class MultiprocessingRunner(AbstractRunner):
         else:
             import multiprocessing
             self.mp = multiprocessing
+        self.num_parallel = None
 
     def run(self, specifications_to_run: typing.List[Specification],
             run_and_save_fn: typing.Callable[[Specification], typing.Union[None, Exception]]):
-        pool = self.mp.Pool(self.num_cores)
+        pool = self.mp.Pool(self.num_parallel)
         manager = self.mp.Manager()
         counter = manager.Value('i', 0)
         seconds_completion = manager.Value("d", 0)
