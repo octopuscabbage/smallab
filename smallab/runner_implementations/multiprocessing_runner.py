@@ -26,18 +26,20 @@ def parallel_f(specification, run_and_save_fn, idx, max_num, counter, seconds_co
     beginning_string = beginning.strftime(time_str)
     logger.info(f"Begin job {idx} / {max_num} @ {beginning_string}")
     result = run_and_save_fn(specification)
-    end = datetime.datetime.now()
-    end_str = end.strftime(time_str)
-    time_to_complete = (end - beginning).total_seconds()
-    if seconds_completion.get() == 0.0:
-        seconds_completion.set(time_to_complete)
-    else:
-        seconds_completion.set(alpha * time_to_complete + (1 - alpha) * seconds_completion.get())
-    completed_by = datetime.datetime.now() + datetime.timedelta(0, (
-            max_num - counter.value) * seconds_completion.get())
-    counter.value += 1
-    logger.info(
-        f"Completed {counter.value}/{max_num} total @ {end_str} Taking {time_to_complete}.Estimated per job {seconds_completion.get()}s. Estimate to complete @ {completed_by}.")
+
+    if not isinstance(result,Exception):
+        end = datetime.datetime.now()
+        end_str = end.strftime(time_str)
+        time_to_complete = (end - beginning).total_seconds()
+        if seconds_completion.get() == 0.0:
+            seconds_completion.set(time_to_complete)
+        else:
+            seconds_completion.set(alpha * time_to_complete + (1 - alpha) * seconds_completion.get())
+        completed_by = datetime.datetime.now() + datetime.timedelta(0, (
+                max_num - counter.value) * seconds_completion.get())
+        counter.value += 1
+        logger.info(
+            f"Completed {counter.value}/{max_num} total @ {end_str} Taking {time_to_complete}. Estimated per job {seconds_completion.get()}s. Estimate to complete @ {completed_by}.")
     return result
 
 

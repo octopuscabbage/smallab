@@ -141,7 +141,7 @@ class ExperimentRunner(object):
             for callback in self.callbacks:
                 callback.on_batch_complete(specification_runner.get_completed())
 
-    def __run_and_save(self, name, experiment, specification, dont_catch_exceptions):
+    def __run_and_save(self, name, experiment, specification, propogate_exceptions):
         experiment = deepcopy(experiment)
         specification_id = specification_hash(specification)
         logger_name = f"smallab.experiment.{specification_id}"
@@ -166,10 +166,11 @@ class ExperimentRunner(object):
                 callback.on_specification_complete(specification, result)
             return None
 
-        if not dont_catch_exceptions:
+        if not propogate_exceptions:
             try:
                 _interior_fn()
             except Exception as e:
+                logger.error("Specification Failure",exc_info=True)
                 for callback in self.callbacks:
                     callback.on_specification_failure(e, specification)
                 return e
