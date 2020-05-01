@@ -58,11 +58,11 @@ class CheckpointedExperimentHandler():
             os.makedirs(location, exist_ok=True)
             with open(os.path.join(location, str(datetime.datetime.now()) + ".pkl"), "wb") as f:
                 pickle.dump(experiment, f)
-            logging.getLogger("smallab").info(f"Succesfully checkpointed {specification_hash(specification)}")
+            logging.getLogger("smallab").info("Succesfully checkpointed {id}".format(id=specification_hash(specification)))
             checkpoints = os.listdir(location)
             if len(checkpoints) > self.rolled_backups:
                 checkpoints = self._get_time_sorted_checkpoints(name, specification)
                 os.remove(os.path.join(location, str(checkpoints[0]) + ".pkl"))
         except:
-            logging.getLogger("smallab").warning(f"Unsuccesful at checkpointing {specification_hash(specification)}",
+            logging.getLogger("smallab").warning("Unsuccesful at checkpointing {id}".format(id=specification_hash(specification)),
                                                  exc_info=True)

@@ -6,7 +6,7 @@ import os
 from smallab.specification_hashing import specification_hash
 from smallab.types import Specification
 
-experiment_folder = "experiment_run/"
+experiment_folder = "experiment_runs"
 
 
 def get_save_directory(name: typing.AnyStr) -> typing.AnyStr:

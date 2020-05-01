@@ -84,7 +84,7 @@ class ExperimentRunner(object):
                 need_to_run_specifications.append(specification)
         return need_to_run_specifications
 
-    def run(self, name: typing.AnyStr, specifications: typing.List[typing.Dict], experiment: BaseExperiment,
+    def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: BaseExperiment,
             continue_from_last_run=True, propagate_exceptions=False,
             force_pickle=False, specification_runner: AbstractRunner = JoblibRunner(None)) -> typing.NoReturn:
         """
@@ -145,12 +145,12 @@ class ExperimentRunner(object):
     def __run_and_save(self, name, experiment, specification, propagate_exceptions):
         experiment = deepcopy(experiment)
         specification_id = specification_hash(specification)
-        logger_name = f"smallab.experiment.{specification_id}"
+        logger_name = "smallab.experiment.{specification_id}".format(specification_id=specification_id)
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.INFO)
         file_handler = logging.FileHandler(get_log_file(experiment, specification_id))
         # stream_handler = logging.StreamHandler()
-        formatter = logging.Formatter(f"%(asctime)s [%(levelname)-5.5s]  %(message)s")
+        formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
         # stream_handler.setFormatter(formatter)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
