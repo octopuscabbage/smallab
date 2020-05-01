@@ -12,14 +12,6 @@ class AbstractRunner(abc.ABC):
     The subclass must implement run and call finish after it is run.
     """
 
-    def set_num_concurrency_to_use(self, num_cores):
-        """
-        Called from the ExperimentRunner class
-        Determines how many specifications to run concurrently
-        :param num_cores: An integer specifying the amount of specifications to run concurrently
-        """
-        self.num_cores = num_cores
-
     def finish(self, completed_specifications: typing.List[Specification],
                failed_specifications: typing.List[Specification], exceptions: typing.List[Exception]):
         """

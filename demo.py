@@ -1,7 +1,6 @@
 import json
-import threading
 
-from smallab.runner_implementations.main_process_runner import MainRunner
+from smallab.file_locations import get_experiment_save_directory, get_save_directory
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 
 if __name__ == "__main__":
@@ -21,13 +20,14 @@ if __name__ == "__main__":
         # Need to implement this method, will be passed the specification
         # Return a dictionary of results
         def main(self, specification: typing.Dict) -> typing.Dict:
-            self.get_logger().info("Doing work!")
+            self.get_logger_name().info("Doing work!")
             random.seed(specification["seed"])
             for i in range(specification["num_calls"]):  # Advance the random number generator some amount
                 random.random()
             if "fail" in specification and specification["fail"]:
                 raise Exception()
             return {"number": random.random()}
+
 
     runner = ExperimentRunner()
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     # Read back our results. Smallab will attempt to save the file in json format so you can easily read
     # it but will fall back to pickle if necessary.
-    for root, _, files in os.walk(runner.get_experiment_save_directory("random_number")):
+    for root, _, files in os.walk(get_experiment_save_directory("random_number")):
         for fname in files:
             if ".json" in fname:
                 with open(os.path.join(root, fname), "r") as f:
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     runner.run("random_number_from_generator", specifications, SimpleExperiment(), continue_from_last_run=True)
 
     # Read back our results
-    for root, _, files in os.walk(runner.get_save_directory("random_number_from_generator")):
+    for root, _, files in os.walk(get_save_directory("random_number_from_generator")):
         for fname in files:
             if ".pkl" in fname:
                 with open(os.path.join(root, fname), "rb") as f:
