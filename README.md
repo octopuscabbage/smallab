@@ -20,6 +20,9 @@ pip install smallab
 
 or clone here from source
 
+## Documentation
+
+https://smallab.readthedocs.io/en/latest/
 
 ## Usage
 Check out demo.py (Copied here)
