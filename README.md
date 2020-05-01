@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/smallab/badge/?version=latest)](https://smallab.readthedocs.io/en/latest/?badge=latest)
+
 # smallab
 :small_blue_diamond: :microscope: :small_blue_diamond:
 
