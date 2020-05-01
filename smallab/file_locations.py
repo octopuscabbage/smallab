@@ -6,7 +6,7 @@ import os
 from smallab.specification_hashing import specification_hash
 from smallab.types import Specification
 
-experiment_folder = "experiment_runs/"
+experiment_folder = "experiment_run/"
 
 
 def get_save_directory(name: typing.AnyStr) -> typing.AnyStr:
@@ -23,7 +23,7 @@ def get_experiment_save_directory(name):
 
 
 def get_pkl_file_location(name: typing.AnyStr,
-                          specification: typing.Dict) -> typing.AnyStr:
+                          specification: Specification) -> typing.AnyStr:
     """
     Get the filename to save the file under
     :param name: The name of the current batch
@@ -64,4 +64,4 @@ def get_partial_save_directory(name, specification):
 
 
 def get_log_file(experiment, specification_id):
-    return f"{experiment.get_logging_folder()}/{specification_id}.log"
+    return os.path.join(experiment.get_logging_folder(),specification_id + ".log")

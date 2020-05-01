@@ -18,6 +18,10 @@ class CheckpointedExperimentHandler():
     An internal handler to handle running checkpointed experiments.
     """
     def __init__(self, rolled_backups=3):
+        """
+
+        :param rolled_backups: Controls how many backups are kept. Once this limit is reached the oldest is deleted.
+        """
         self.rolled_backups = rolled_backups
 
     def run(self, experiment: CheckpointedExperiment, name: typing.AnyStr, specification: Specification):

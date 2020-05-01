@@ -10,8 +10,9 @@ from copy import deepcopy
 from smallab.callbacks import CallbackManager
 from smallab.checkpointed_experiment_handler import CheckpointedExperimentHandler
 from smallab.experiment import CheckpointedExperiment, BaseExperiment
-from smallab.file_locations import get_save_file_directory, get_json_file_location, get_pkl_file_location, \
-    get_specification_file_location, get_save_directory, get_experiment_save_directory, get_log_file
+from smallab.file_locations import (get_save_file_directory, get_json_file_location, get_pkl_file_location,
+                                    get_specification_file_location, get_save_directory, get_experiment_save_directory,
+                                    get_log_file)
 from smallab.runner_implementations.abstract_runner import AbstractRunner
 from smallab.runner_implementations.joblib_runner import JoblibRunner
 from smallab.specification_hashing import specification_hash
@@ -84,10 +85,11 @@ class ExperimentRunner(object):
         return need_to_run_specifications
 
     def run(self, name: typing.AnyStr, specifications: typing.List[typing.Dict], experiment: BaseExperiment,
-            continue_from_last_run=True, propogate_exceptions=False,
+            continue_from_last_run=True, propagate_exceptions=False,
             force_pickle=False, specification_runner: AbstractRunner = JoblibRunner(None)) -> typing.NoReturn:
         """
         The method called to run an experiment
+        :param propagate_exceptions: If True, exceptions won't be caught and logged as failed experiments but will cause the program to crash (like normal), useful for debugging exeperiments
         :param name: The name of this experiment batch
         :param specifications: The list of specifications to run. Should be a list of dictionaries. Each dictionary is passed to the experiment run method
         :param experiment: The experiment object to run
@@ -95,7 +97,6 @@ class ExperimentRunner(object):
         :param show_progress: Whether or not to show a progress bar for experiment completion
         :param force_pickle: If true, don't attempt to json serialze results and default to pickling
         :param specification_runner: An instance of ```AbstractRunner``` that will be used to run the specification
-        :param: propogate_exceptions: If True, exceptions won't be caught and logged as failed experiments but will cause the program to crash (like normal), useful for debugging exeperiments
         :return: No return
         """
         # Set up root smallab logger
@@ -127,7 +128,7 @@ class ExperimentRunner(object):
 
         specification_runner.run(need_to_run_specifications,
                                  lambda specification: self.__run_and_save(name, experiment, specification,
-                                                                           propogate_exceptions))
+                                                                           propagate_exceptions))
         self._write_to_completed_json(name, specification_runner.get_completed(),
                                       specification_runner.get_failed_specifications())
 
@@ -141,7 +142,7 @@ class ExperimentRunner(object):
             for callback in self.callbacks:
                 callback.on_batch_complete(specification_runner.get_completed())
 
-    def __run_and_save(self, name, experiment, specification, propogate_exceptions):
+    def __run_and_save(self, name, experiment, specification, propagate_exceptions):
         experiment = deepcopy(experiment)
         specification_id = specification_hash(specification)
         logger_name = f"smallab.experiment.{specification_id}"
@@ -166,11 +167,11 @@ class ExperimentRunner(object):
                 callback.on_specification_complete(specification, result)
             return None
 
-        if not propogate_exceptions:
+        if not propagate_exceptions:
             try:
                 _interior_fn()
             except Exception as e:
-                logger.error("Specification Failure",exc_info=True)
+                logger.error("Specification Failure", exc_info=True)
                 for callback in self.callbacks:
                     callback.on_specification_failure(e, specification)
                 return e

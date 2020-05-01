@@ -65,7 +65,9 @@ class CheckpointedExperiment(BaseExperiment):
     """
     CheckpointedExperiment is an Experiment which can be stopped and restarted.
     Step is called multiple times, after it returns the current experiment is serialized allowing the experiment to
-    restart seemlessly since to step it will not look any different whether python has shut down in between succesive calls.
+    restart seamlessly since to step it will not look any different whether python has shut down in between successive calls.
+    Smallab will handle serialization and deserialization of this object.
+    This will fail if objects attached to the experiment are not pickleable.
 
     The lifecycle of this object is
 
