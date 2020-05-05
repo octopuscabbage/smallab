@@ -22,7 +22,7 @@ class JoblibRunner(AbstractRunner):
         completed_specifications = []
         failed_specifications = []
         exceptions = []
-        with tqdm(total=len(specifications_to_run), file=TqdmToLogger(logging.getLogger("smallab")),
+        with tqdm(total=len(specifications_to_run), file=TqdmToLogger(logging.getLogger("smallab.joblib_runner")),
                   desc="Running Specifications") as pbar:
             def parallel_f(specification):
                 run_and_save_fn(specification)

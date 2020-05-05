@@ -20,7 +20,7 @@ def apply_async(pool, fun, args):
 
 def parallel_f(specification, run_and_save_fn, idx, max_num, counter, seconds_completion):
     alpha = .8
-    logger = logging.getLogger("smallab")
+    logger = logging.getLogger("smallab.multirpocessing_runner")
     time_str = "%d-%b-%Y (%H:%M:%S.%f)"
     beginning = datetime.datetime.now()
     beginning_string = beginning.strftime(time_str)

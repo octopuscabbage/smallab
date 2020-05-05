@@ -17,6 +17,7 @@ class CheckpointedExperimentHandler():
     """
     An internal handler to handle running checkpointed experiments.
     """
+
     def __init__(self, rolled_backups=3):
         """
 
@@ -25,10 +26,11 @@ class CheckpointedExperimentHandler():
         self.rolled_backups = rolled_backups
 
     def run(self, experiment: CheckpointedExperiment, name: typing.AnyStr, specification: Specification):
-        try:
-            experiment = self.load_most_recent(name,specification)
-        except FileNotFoundError:
+        loaded_experiment = self.load_most_recent(name, specification)
+        if loaded_experiment is None:
             experiment.initialize(specification)
+        else:
+            experiment = loaded_experiment
 
         self.__save_checkpoint(experiment, name, specification)
         result = experiment.step()
@@ -38,16 +40,39 @@ class CheckpointedExperimentHandler():
         return result
 
     def load_most_recent(self, name, specification):
+        specification_id = specification_hash(specification)
         location = get_partial_save_directory(name, specification)
         checkpoints = self._get_time_sorted_checkpoints(name, specification)
-        with open(os.path.join(location, str(checkpoints[-1]) + ".pkl"), "rb") as f:
-            partial_experiment = pickle.load(f)
+        if checkpoints == []:
+            logging.getLogger("smallab.checkpoint").info("No checkpoints for {id}".format(id=specification_id))
+            return
+        #checkpoints = reversed(checkpoints)
+        able_to_load_checkpoint = False
+        checkpoints = reversed(checkpoints)
+        for checkpoint in checkpoints:
+            try:
+                with open(os.path.join(location, str(checkpoint) + ".pkl"), "rb") as f:
+                    partial_experiment = pickle.load(f)
+                    able_to_load_checkpoint = True
+                    break
+            except:
+                logging.getLogger("smallab.checkpoint").warning(
+                    "Unable to load {id} checkpoint {chp}".format(id=specification_id,chp=checkpoint), exc_info=True)
+        if not able_to_load_checkpoint:
+            logging.getLogger("smallab.checkpoint").warning("All checkpoints corrupt for {id}".format(id=specification_id))
+            return
+        else:
+            logging.getLogger("smallab.checkpoint").info(
+                "Successfully loaded {id} checkpoint {chp}".format(id=specification_id,chp=checkpoint))
         return partial_experiment
 
     def _get_time_sorted_checkpoints(self, name, specification):
 
         location = get_partial_save_directory(name, specification)
-        checkpoints = os.listdir(location)
+        try:
+            checkpoints = os.listdir(location)
+        except FileNotFoundError:
+            return []
         checkpoints = sorted(
             list(map(parse, map(lambda x: x.strip(".pkl"), checkpoints))))
         return checkpoints
@@ -56,13 +81,17 @@ class CheckpointedExperimentHandler():
         try:
             location = get_partial_save_directory(name, specification)
             os.makedirs(location, exist_ok=True)
-            with open(os.path.join(location, str(datetime.datetime.now()) + ".pkl"), "wb") as f:
+            #TODO make sure a checkpoint with this name doesn't already exist
+            checkpoint_name = str(datetime.datetime.now())
+            with open(os.path.join(location, checkpoint_name + ".pkl"), "wb") as f:
                 pickle.dump(experiment, f)
-            logging.getLogger("smallab").info("Succesfully checkpointed {id}".format(id=specification_hash(specification)))
+            logging.getLogger("smallab.checkpoint").info(
+                "Succesfully checkpointed {id} checkpoint {chp}".format(id=specification_hash(specification),chp=checkpoint_name))
             checkpoints = os.listdir(location)
             if len(checkpoints) > self.rolled_backups:
                 checkpoints = self._get_time_sorted_checkpoints(name, specification)
                 os.remove(os.path.join(location, str(checkpoints[0]) + ".pkl"))
         except:
-            logging.getLogger("smallab").warning("Unsuccesful at checkpointing {id}".format(id=specification_hash(specification)),
-                                                 exc_info=True)
+            logging.getLogger("smallab.checkpoint").warning(
+                "Unsuccesful at checkpointing {id} checkpoint {chp}".format(id=specification_hash(specification),chp=checkpoint_name),
+                exc_info=True)
