@@ -1,4 +1,4 @@
-import pickle
+import dill
 import typing
 import unittest
 from threading import Lock
@@ -45,10 +45,15 @@ class PickleOnlySerializableExeperiment(ReturnBadExperiment):
         self.bad = np.array([1, 2, 3])
         self.j = 0
 
+def generator():
+    i = 0
+    while True:
+        i+=1
+        yield i
 
 class UnserializableExperiment(ReturnBadExperiment):
     def initialize(self, specification: Specification):
-        self.bad = Lock()
+        self.bad = generator()
         self.j = 0
 
 
@@ -83,10 +88,10 @@ class TestInProgressSerialization(unittest.TestCase):
         experiment.initialize(None)
         experiment.step()
         with open("tmp.pkl", "wb") as f:
-            pickle.dump(experiment, f)
+            dill.dump(experiment, f)
         del experiment
         with open("tmp.pkl", "rb") as f:
-            loaded_experiment = pickle.load(f)
+            loaded_experiment = dill.load(f)
         self.assertEqual(loaded_experiment.step(), dict())
 
     def test_with_runner(self):

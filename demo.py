@@ -8,7 +8,7 @@ if __name__ == "__main__":
     import typing
     import random
     import os
-    import pickle
+    import dill
 
     # What you need to import from smallab
     from smallab.experiment import Experiment
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         for fname in files:
             if ".pkl" in fname:
                 with open(os.path.join(root, fname), "rb") as f:
-                    results = pickle.load(f)
+                    results = dill.load(f)
                     print(results["specification"]["seed"])
                     print(results["result"]["number"])
 

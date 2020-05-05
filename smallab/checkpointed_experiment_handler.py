@@ -1,6 +1,6 @@
 import datetime
 import logging
-import pickle
+import dill
 import typing
 
 import os
@@ -53,7 +53,7 @@ class CheckpointedExperimentHandler():
         for checkpoint in checkpoints:
             try:
                 with open(os.path.join(location, str(checkpoint) + ".pkl"), "rb") as f:
-                    partial_experiment = pickle.load(f)
+                    partial_experiment = dill.load(f)
                     able_to_load_checkpoint = True
                     used_checkpoint = checkpoint
                     break
@@ -87,7 +87,7 @@ class CheckpointedExperimentHandler():
             os.makedirs(location, exist_ok=True)
             #TODO make sure a checkpoint with this name doesn't already exist
             with open(os.path.join(location, checkpoint_name + ".pkl"), "wb") as f:
-                pickle.dump(experiment, f)
+                dill.dump(experiment, f)
             logging.getLogger("smallab.{id}.checkpoint".format(id=experiment_hash)).info(
                 "Succesfully checkpointed {chp}".format(chp=checkpoint_name))
             checkpoints = os.listdir(location)

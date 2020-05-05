@@ -33,7 +33,7 @@ Check out demo.py (Copied here)
 import typing
 import random
 import os
-import pickle
+import dill
 
 #What you need to import from smallab
 from smallab.experiment import Experiment
@@ -74,7 +74,7 @@ for root,_,files in os.walk(runner.get_save_directory("random_number")):
     for fname in files:
         if ".pkl" in fname:
             with open(os.path.join(root, fname), "rb") as f:
-                results = pickle.load(f)
+                results = dill.load(f)
                 print(results["specification"]["seed"])
                 print(results["result"]["number"])
 
@@ -95,7 +95,7 @@ for root,_,files in os.walk(runner.get_save_directory("random_number_from_genera
     for fname in files:
         if ".pkl" in fname:
             with open(os.path.join(root, fname), "rb") as f:
-                results = pickle.load(f)
+                results = dill.load(f)
                 print(results["specification"]["seed"])
                 print(results["result"]["number"])
 

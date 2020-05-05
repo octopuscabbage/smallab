@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-import pickle
+import dill
 import typing
 
 import os
@@ -69,7 +69,7 @@ class ExperimentRunner(object):
             for fname in files:
                 if ".pkl" in fname:
                     with open(os.path.join(root, fname), "rb") as f:
-                        completed = pickle.load(f)
+                        completed = dill.load(f)
                     already_completed_specifications.append(completed["specification"])
                 if ".json" in fname and fname != 'specification.json':
                     with open(os.path.join(root, fname), "r") as f:
@@ -199,7 +199,7 @@ class ExperimentRunner(object):
             specification_file_location = get_specification_file_location(name, specification)
             try:
                 with open(pickle_file_location, "wb") as f:
-                    pickle.dump(output_dictionary, f)
+                    dill.dump(output_dictionary, f)
                 with open(specification_file_location, "w") as f:
                     json.dump(specification, f)
             except Exception:
