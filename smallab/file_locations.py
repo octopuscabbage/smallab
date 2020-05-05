@@ -30,13 +30,11 @@ def get_pkl_file_location(name: typing.AnyStr,
     :param specification: The specification of the current run
     :return: The filename to save this run under
     """
-    return os.path.join(get_save_file_directory(name, specification),
-                        str(hash(json.dumps(specification, sort_keys=True))) + ".pkl")
+    return os.path.join(get_save_file_directory(name, specification),"run.pkl")
 
 
 def get_json_file_location(name, specification):
-    return os.path.join(get_save_file_directory(name, specification),
-                        str(hash(json.dumps(specification, sort_keys=True))) + ".json")
+    return os.path.join(get_save_file_directory(name, specification),"run.json")
 
 
 def get_specification_file_location(name: typing.AnyStr, specification: typing.Dict) -> typing.AnyStr:

@@ -191,7 +191,7 @@ class ExperimentRunner(object):
                     json.dump(output_dictionary, f)
                 json_serialize_was_successful = True
             except Exception:
-                experiment.get_logger_name().warning("Json serialization failed with exception", exc_info=True)
+                logging.getLogger(experiment.get_logger_name()).warning("Json serialization failed with exception", exc_info=True)
                 os.remove(json_filename)
         # Try pickle serialization
         if self.force_pickle or not json_serialize_was_successful:
@@ -203,6 +203,12 @@ class ExperimentRunner(object):
                 with open(specification_file_location, "w") as f:
                     json.dump(specification, f)
             except Exception:
-                experiment.get_logger_name().critical("Experiment results serialization failed!!!", exc_info=True)
-                os.remove(pickle_file_location)
-                os.remove(specification_file_location)
+                logging.getLogger(experiment.get_logger_name()).critical("Experiment results serialization failed!!!", exc_info=True)
+                try:
+                    os.remove(pickle_file_location)
+                except FileNotFoundError:
+                    pass
+                try:
+                    os.remove(specification_file_location)
+                except FileNotFoundError:
+                    pass

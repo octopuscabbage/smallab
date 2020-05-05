@@ -1,7 +1,9 @@
 import pickle
 import typing
 import unittest
+from threading import Lock
 
+import numpy as np
 import os
 
 from smallab.checkpointed_experiment_handler import CheckpointedExperimentHandler
@@ -23,6 +25,31 @@ class SerializableExperiment(CheckpointedExperiment):
             return dict()
         else:
             return None
+
+
+class ReturnBadExperiment(CheckpointedExperiment):
+    def initialize(self, specification: Specification):
+        self.j = 0
+        self.bad = []
+
+    def step(self):
+        self.j += 1
+        if self.j == 10:
+            return {"x": self.bad}
+        else:
+            return None
+
+
+class PickleOnlySerializableExeperiment(ReturnBadExperiment):
+    def initialize(self, specification: Specification):
+        self.bad = np.array([1, 2, 3])
+        self.j = 0
+
+
+class UnserializableExperiment(ReturnBadExperiment):
+    def initialize(self, specification: Specification):
+        self.bad = Lock()
+        self.j = 0
 
 
 class SerializableExperimentFailsAfter4Steps(CheckpointedExperiment):
@@ -75,6 +102,20 @@ class TestInProgressSerialization(unittest.TestCase):
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
         self.assertEqual(3, len(os.listdir(get_partial_save_directory("test", specification))))
-        partial_experiment = CheckpointedExperimentHandler().load_most_recent("test",specification)
-        self.assertEqual(partial_experiment.j,3)
+        partial_experiment = CheckpointedExperimentHandler().load_most_recent("test", specification)
+        self.assertEqual(partial_experiment.j, 3)
 
+    def test_un_serializable_experiment_failure(self):
+        experiment = UnserializableExperiment()
+        runner = ExperimentRunner()
+        specification = {"test": "test"}
+        runner.run("test", [specification], experiment, specification_runner=MainRunner())
+        self.assertEqual(0, len(os.listdir(get_save_file_directory('test', specification))))
+
+    def test_pickle_serializable_experiment_success(self):
+        experiment = PickleOnlySerializableExeperiment()
+        runner = ExperimentRunner()
+        specification = {"test": "test"}
+        runner.run("test", [specification], experiment, specification_runner=MainRunner())
+        self.assertIn("run.pkl", os.listdir(get_save_file_directory('test', specification)))
+        self.assertIn("specification.json", os.listdir(get_save_file_directory('test', specification)))
