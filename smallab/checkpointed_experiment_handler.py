@@ -44,26 +44,28 @@ class CheckpointedExperimentHandler():
         location = get_partial_save_directory(name, specification)
         checkpoints = self._get_time_sorted_checkpoints(name, specification)
         if checkpoints == []:
-            logging.getLogger("smallab.checkpoint").info("No checkpoints for {id}".format(id=specification_id))
+            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).info("No checkpoints available")
             return
         #checkpoints = reversed(checkpoints)
         able_to_load_checkpoint = False
         checkpoints = reversed(checkpoints)
+        used_checkpoint = None
         for checkpoint in checkpoints:
             try:
                 with open(os.path.join(location, str(checkpoint) + ".pkl"), "rb") as f:
                     partial_experiment = pickle.load(f)
                     able_to_load_checkpoint = True
+                    used_checkpoint = checkpoint
                     break
             except:
-                logging.getLogger("smallab.checkpoint").warning(
-                    "Unable to load {id} checkpoint {chp}".format(id=specification_id,chp=checkpoint), exc_info=True)
+                logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).warning(
+                    "Unable to load checkpoint {chp}".format(chp=checkpoint), exc_info=True)
         if not able_to_load_checkpoint:
-            logging.getLogger("smallab.checkpoint").warning("All checkpoints corrupt for {id}".format(id=specification_id))
+            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).warning("All checkpoints corrupt".format(id=specification_id))
             return
         else:
-            logging.getLogger("smallab.checkpoint").info(
-                "Successfully loaded {id} checkpoint {chp}".format(id=specification_id,chp=checkpoint))
+            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).info(
+                "Successfully loaded checkpoint {chp}".format(chp=used_checkpoint))
         return partial_experiment
 
     def _get_time_sorted_checkpoints(self, name, specification):
@@ -78,20 +80,21 @@ class CheckpointedExperimentHandler():
         return checkpoints
 
     def __save_checkpoint(self, experiment, name, specification):
+        experiment_hash = specification_hash(specification)
+        checkpoint_name = str(datetime.datetime.now())
         try:
             location = get_partial_save_directory(name, specification)
             os.makedirs(location, exist_ok=True)
             #TODO make sure a checkpoint with this name doesn't already exist
-            checkpoint_name = str(datetime.datetime.now())
             with open(os.path.join(location, checkpoint_name + ".pkl"), "wb") as f:
                 pickle.dump(experiment, f)
-            logging.getLogger("smallab.checkpoint").info(
-                "Succesfully checkpointed {id} checkpoint {chp}".format(id=specification_hash(specification),chp=checkpoint_name))
+            logging.getLogger("smallab.{id}.checkpoint".format(id=experiment_hash)).info(
+                "Succesfully checkpointed {chp}".format(chp=checkpoint_name))
             checkpoints = os.listdir(location)
             if len(checkpoints) > self.rolled_backups:
                 checkpoints = self._get_time_sorted_checkpoints(name, specification)
                 os.remove(os.path.join(location, str(checkpoints[0]) + ".pkl"))
         except:
-            logging.getLogger("smallab.checkpoint").warning(
-                "Unsuccesful at checkpointing {id} checkpoint {chp}".format(id=specification_hash(specification),chp=checkpoint_name),
+            logging.getLogger("smallab.{id}.checkpoint".format(id=experiment_hash)).warning(
+                "Unsuccesful checkpoint {chp}".format(chp=checkpoint_name),
                 exc_info=True)

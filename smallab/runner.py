@@ -145,7 +145,7 @@ class ExperimentRunner(object):
     def __run_and_save(self, name, experiment, specification, propagate_exceptions):
         experiment = deepcopy(experiment)
         specification_id = specification_hash(specification)
-        logger_name = "smallab.experiment.{specification_id}".format(specification_id=specification_id)
+        logger_name = "smallab.{specification_id}".format(specification_id=specification_id)
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.INFO)
         file_handler = logging.FileHandler(get_log_file(experiment, specification_id))
