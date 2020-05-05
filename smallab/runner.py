@@ -79,7 +79,7 @@ class ExperimentRunner(object):
         need_to_run_specifications = []
         for specification in specifications:
             if specification in already_completed_specifications:
-                logging.getLogger("smallab").info("Skipping: " + str(specification))
+                logging.getLogger("smallab.runner").info("Skipping: " + str(specification))
             else:
                 need_to_run_specifications.append(specification)
         return need_to_run_specifications
