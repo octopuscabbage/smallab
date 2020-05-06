@@ -105,7 +105,7 @@ class ExperimentRunner(object):
         if not os.path.exists(folder_loc):
             os.makedirs(folder_loc)
         logger = logging.getLogger("smallab")
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         fh = logging.FileHandler(file_loc)
         fh.setFormatter(formatter)
@@ -147,7 +147,7 @@ class ExperimentRunner(object):
         specification_id = specification_hash(specification)
         logger_name = "smallab.{specification_id}".format(specification_id=specification_id)
         logger = logging.getLogger(logger_name)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         file_handler = logging.FileHandler(get_log_file(experiment, specification_id))
         # stream_handler = logging.StreamHandler()
         formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
