@@ -26,7 +26,8 @@ or clone here from source
 https://smallab.readthedocs.io/en/latest/
 
 ## Usage
-Check out demo.py (Copied here)
+Check out
+[`demo.py`](https://github.com/octopuscabbage/smallab/blob/master/demo.py) (Copied here)
 
 ```python
 import typing
@@ -130,19 +131,19 @@ runner.run('with_logging',SpecificationGenerator().from_json_file("test.json"),S
 ```
 
 ## How it works
-The ExperimentRunner class is passed a list of dictionaries of specifications. 
+The `ExperimentRunner` class is passed a list of dictionaries of specifications. 
 These dictionaries need to be json serializable.
 
-The ExperimentRunner looks at the completed.json in the folder for the batch name (The name parameter of the .run method) and computes which experiments need to be run. 
-The experiments that need to run are the specifications not in the completed.json.
+The `ExperimentRunner` looks at the `completed.json` in the folder for the batch name (the name parameter of the `.run` method) and computes which experiments need to be run. 
+The experiments that need to run are the specifications not in the `completed.json`.
 
-The ExperimentRunner begins runnning the batch either in parallel or single threaded. 
-If the parallel implementation is used each specification is joblib's threaded backend. 
+The `ExperimentRunner` begins runnning the batch either in parallel or single threaded. 
+If the parallel implementation is used each specification is `joblib`'s threaded backend. 
 
-Once all experiments are either completed or failed (They threw an exception) the results are saved as a pickle file. 
-The results are saved in a dictionary that looks like {"specification": <the specification the experiment was passed>, "result": <what the experiment .main returned>}.
+Once all experiments are either completed or failed (they threw an exception) the results are saved as a `pickle` file. 
+The results are saved in a dictionary that looks like `{"specification": <the specification the experiment was passed>, "result": <what the experiment .main returned>}`.
 
-The return value of the experiment .main function must be pickle serializable. 
+The return value of the experiment `.main` function must be `pickle` serializable. 
 
 ### Callbacks
 The runner has several hooks which are called at different times. 
