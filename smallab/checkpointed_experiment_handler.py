@@ -29,9 +29,9 @@ class CheckpointedExperimentHandler():
         loaded_experiment = self.load_most_recent(name, specification)
         if loaded_experiment is None:
             experiment.initialize(specification)
+            self.__save_checkpoint(experiment, name, specification)
         else:
             experiment = loaded_experiment
-            self.__save_checkpoint(experiment, name, specification)
         result = experiment.step()
         while result is None:
             self.__save_checkpoint(experiment, name, specification)
