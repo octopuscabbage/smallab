@@ -141,7 +141,13 @@ The `ExperimentRunner` begins runnning the batch either in parallel or single th
 If the parallel implementation is used each specification is `joblib`'s threaded backend. 
 
 Once all experiments are either completed or failed (they threw an exception) the results are saved as a `pickle` file. 
-The results are saved in a dictionary that looks like `{"specification": <the specification the experiment was passed>, "result": <what the experiment .main returned>}`.
+The results are saved in a dictionary that looks like 
+```python
+{
+    "specification": <the specification the experiment was passed>,
+    "result": <what the experiment .main returned>
+}
+```
 
 The return value of the experiment `.main` function must be `pickle` serializable. 
 
