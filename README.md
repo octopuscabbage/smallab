@@ -156,12 +156,10 @@ The runner has several hooks which are called at different times.
 ### Folder Structure
 Each experiment is saved in the following structure
 
-* experiment_runs/
-
-.* \<name\>/ #The name you provide to runner.run
-
-..* <specification_hash>/ # A hash of the dictionary you provide as the specification
-
-...* specification.json # The specification.json
-
-...* <specification_hash>.pkl #The results dictionary
+```
+experiment_runs/
+  <name>/                        # The name you provide to runner.run
+    <specification_hash>/        # A hash of the dictionary you provide as the specification
+      specification.json         # The specification.json
+        <specification_hash>.pkl # The results dictionary
+```
