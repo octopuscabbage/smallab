@@ -27,6 +27,7 @@ https://smallab.readthedocs.io/en/latest/
 
 ## Usage
 Check out
+[`the examples folder`](https://github.com/octopuscabbage/smallab/tree/master/examples) or 
 [`demo.py`](https://github.com/octopuscabbage/smallab/blob/master/demo.py) (Copied here)
 
 ```python
