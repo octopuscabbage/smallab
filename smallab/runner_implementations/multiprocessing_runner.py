@@ -5,7 +5,8 @@ import typing
 import dill
 
 from smallab.runner_implementations.abstract_runner import AbstractRunner
-from smallab.types import Specification
+from smallab.smallab_types import Specification
+from smallab.specification_hashing import specification_hash
 
 
 def run_dill_encoded(payload):
@@ -20,7 +21,8 @@ def apply_async(pool, fun, args):
 
 def parallel_f(specification, run_and_save_fn, idx, max_num, counter, seconds_completion):
     alpha = .8
-    logger = logging.getLogger("smallab.multirpocessing_runner")
+    specification_id = specification_hash(specification)
+    logger = logging.getLogger("smallab.{id}.multiprocessing_runner".format(id=specification_id))
     time_str = "%d-%b-%Y (%H:%M:%S.%f)"
     beginning = datetime.datetime.now()
     beginning_string = beginning.strftime(time_str)

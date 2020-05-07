@@ -2,7 +2,7 @@ import typing
 
 import abc
 
-from smallab.types import Specification
+from smallab.smallab_types import Specification
 
 
 class BaseExperiment(abc.ABC):

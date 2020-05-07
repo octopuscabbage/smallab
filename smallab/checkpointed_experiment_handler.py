@@ -10,7 +10,7 @@ from smallab.experiment import CheckpointedExperiment
 # TODO this should handle serializing a checkpointable experiment
 from smallab.file_locations import get_partial_save_directory
 from smallab.specification_hashing import specification_hash
-from smallab.types import Specification
+from smallab.smallab_types import Specification
 
 
 class CheckpointedExperimentHandler():

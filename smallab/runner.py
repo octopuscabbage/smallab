@@ -16,7 +16,7 @@ from smallab.file_locations import (get_save_file_directory, get_json_file_locat
 from smallab.runner_implementations.abstract_runner import AbstractRunner
 from smallab.runner_implementations.joblib_runner import JoblibRunner
 from smallab.specification_hashing import specification_hash
-from smallab.types import Specification
+from smallab.smallab_types import Specification
 from smallab.utilities.logging_callback import LoggingCallback
 
 

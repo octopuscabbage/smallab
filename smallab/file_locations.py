@@ -4,7 +4,7 @@ import typing
 import os
 
 from smallab.specification_hashing import specification_hash
-from smallab.types import Specification
+from smallab.smallab_types import Specification
 
 experiment_folder = "experiment_runs"
 

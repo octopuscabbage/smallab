@@ -4,7 +4,7 @@ import typing
 from tqdm import tqdm
 
 from smallab.runner_implementations.abstract_runner import AbstractRunner
-from smallab.types import Specification
+from smallab.smallab_types import Specification
 from smallab.utilities.tqdm_to_logger import TqdmToLogger
 
 

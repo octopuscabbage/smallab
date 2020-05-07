@@ -11,7 +11,7 @@ from smallab.experiment import CheckpointedExperiment
 from smallab.file_locations import get_save_file_directory, get_partial_save_directory
 from smallab.runner import ExperimentRunner
 from smallab.runner_implementations.main_process_runner import MainRunner
-from smallab.types import Specification
+from smallab.smallab_types import Specification
 from tests.utils import delete_experiments_folder
 
 
