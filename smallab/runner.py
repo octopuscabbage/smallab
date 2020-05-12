@@ -148,7 +148,6 @@ class ExperimentRunner(object):
         self._write_to_completed_json(name, specification_runner.get_completed(),
                                       specification_runner.get_failed_specifications())
 
-        #self.eventQueue.put("Done!".format())
         # Call batch complete functions
         if specification_runner.get_exceptions() != []:
             for callback in self.callbacks:
@@ -169,9 +168,7 @@ class ExperimentRunner(object):
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.DEBUG)
         file_handler = logging.FileHandler(get_log_file(experiment, specification_id))
-        # stream_handler = logging.StreamHandler()
         formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
-        # stream_handler.setFormatter(formatter)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
