@@ -1,16 +1,18 @@
 import datetime
 import logging
-import dill
 import typing
 
+import dill
 import os
 from dateutil.parser import parse
 
+from smallab.dashboard.dashboard import eventQueue
+from smallab.dashboard.dashboard_events import ProgressEvent
+from smallab.dashboard.utils import put_in_event_queue
 from smallab.experiment import CheckpointedExperiment
-# TODO this should handle serializing a checkpointable experiment
 from smallab.file_locations import get_partial_save_directory
-from smallab.specification_hashing import specification_hash
 from smallab.smallab_types import Specification
+from smallab.specification_hashing import specification_hash
 
 
 class CheckpointedExperimentHandler():
@@ -33,10 +35,16 @@ class CheckpointedExperimentHandler():
         else:
             experiment = loaded_experiment
         result = experiment.step()
-        while result is None:
+        self.publish_completion(specification, result)
+        while result is None or isinstance(result, tuple):
             self.__save_checkpoint(experiment, name, specification)
             result = experiment.step()
+            self.publish_completion(specification, result)
         return result
+
+    def publish_completion(self, specification, result):
+        if isinstance(result, tuple):
+            put_in_event_queue(ProgressEvent(specification_hash(specification), result[0], result[1]))
 
     def load_most_recent(self, name, specification):
         specification_id = specification_hash(specification)
@@ -45,7 +53,7 @@ class CheckpointedExperimentHandler():
         if checkpoints == []:
             logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).info("No checkpoints available")
             return
-        #checkpoints = reversed(checkpoints)
+        # checkpoints = reversed(checkpoints)
         able_to_load_checkpoint = False
         checkpoints = reversed(checkpoints)
         used_checkpoint = None
@@ -60,7 +68,8 @@ class CheckpointedExperimentHandler():
                 logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).warning(
                     "Unable to load checkpoint {chp}".format(chp=checkpoint), exc_info=True)
         if not able_to_load_checkpoint:
-            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).warning("All checkpoints corrupt".format(id=specification_id))
+            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).warning(
+                "All checkpoints corrupt".format(id=specification_id))
             return
         else:
             logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).info(
@@ -84,7 +93,7 @@ class CheckpointedExperimentHandler():
         try:
             location = get_partial_save_directory(name, specification)
             os.makedirs(location, exist_ok=True)
-            #TODO make sure a checkpoint with this name doesn't already exist
+            # TODO make sure a checkpoint with this name doesn't already exist
             with open(os.path.join(location, checkpoint_name + ".pkl"), "wb") as f:
                 dill.dump(experiment, f)
             logging.getLogger("smallab.{id}.checkpoint".format(id=experiment_hash)).info(

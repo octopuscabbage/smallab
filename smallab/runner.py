@@ -1,22 +1,26 @@
 import datetime
 import json
 import logging
-import dill
+import multiprocessing as mp
 import typing
 
+import dill
 import os
 from copy import deepcopy
 
 from smallab.callbacks import CallbackManager
 from smallab.checkpointed_experiment_handler import CheckpointedExperimentHandler
+from smallab.dashboard.dashboard import start_dashboard
+from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, StartExperimentEvent, RegisterEvent
+from smallab.dashboard.utils import LogToEventQueue, put_in_event_queue
 from smallab.experiment import CheckpointedExperiment, BaseExperiment
 from smallab.file_locations import (get_save_file_directory, get_json_file_location, get_pkl_file_location,
                                     get_specification_file_location, get_save_directory, get_experiment_save_directory,
                                     get_log_file)
 from smallab.runner_implementations.abstract_runner import AbstractRunner
 from smallab.runner_implementations.joblib_runner import JoblibRunner
-from smallab.specification_hashing import specification_hash
 from smallab.smallab_types import Specification
+from smallab.specification_hashing import specification_hash
 from smallab.utilities.logging_callback import LoggingCallback
 
 
@@ -86,7 +90,7 @@ class ExperimentRunner(object):
 
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: BaseExperiment,
             continue_from_last_run=True, propagate_exceptions=False,
-            force_pickle=False, specification_runner: AbstractRunner = JoblibRunner(None)) -> typing.NoReturn:
+            force_pickle=False, specification_runner: AbstractRunner = None, use_dashboard=True) -> typing.NoReturn:
         """
         The method called to run an experiment
         :param propagate_exceptions: If True, exceptions won't be caught and logged as failed experiments but will cause the program to crash (like normal), useful for debugging exeperiments
@@ -97,50 +101,69 @@ class ExperimentRunner(object):
         :param show_progress: Whether or not to show a progress bar for experiment completion
         :param force_pickle: If true, don't attempt to json serialze results and default to pickling
         :param specification_runner: An instance of ```AbstractRunner``` that will be used to run the specification
+        :param use_dashboard: If true, use the terminal monitoring dashboard. If false, just stream logs to stdout.
         :return: No return
         """
-        # Set up root smallab logger
-        folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
-        file_loc = os.path.join(folder_loc, "main.log")
-        if not os.path.exists(folder_loc):
-            os.makedirs(folder_loc)
-        logger = logging.getLogger("smallab")
-        logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        fh = logging.FileHandler(file_loc)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-        sh = logging.StreamHandler()
-        sh.setFormatter(formatter)
-        logger.addHandler(sh)
-        experiment.set_logging_folder(folder_loc)
+        if specification_runner is None:
+            specification_runner = JoblibRunner(None)
+        dashboard_process = None
+        try:
+            put_in_event_queue(StartExperimentEvent(name))
+            # Set up root smallab logger
+            folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
+            file_loc = os.path.join(folder_loc, "main.log")
+            if not os.path.exists(folder_loc):
+                os.makedirs(folder_loc)
+            logger = logging.getLogger("smallab")
+            logger.setLevel(logging.DEBUG)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            fh = logging.FileHandler(file_loc)
+            fh.setFormatter(formatter)
+            logger.addHandler(fh)
+            if not use_dashboard:
+                sh = logging.StreamHandler()
+                sh.setFormatter(formatter)
+                logger.addHandler(sh)
+            else:
+                fq = LogToEventQueue()
+                sh = logging.StreamHandler(fq)
+                sh.setFormatter(formatter)
+                logger.addHandler(sh)
+                dashboard_process = mp.Process(target=start_dashboard)
+                dashboard_process.start()
+            experiment.set_logging_folder(folder_loc)
 
-        self.force_pickle = force_pickle
-        if not os.path.exists(get_save_directory(name)):
-            os.makedirs(get_save_directory(name))
+            self.force_pickle = force_pickle
+            if not os.path.exists(get_save_directory(name)):
+                os.makedirs(get_save_directory(name))
 
-        if continue_from_last_run:
-            need_to_run_specifications = self._find_uncompleted_specifications(name, specifications)
-        else:
-            need_to_run_specifications = specifications
-        for callback in self.callbacks:
-            callback.set_experiment_name(name)
-
-        specification_runner.run(need_to_run_specifications,
-                                 lambda specification: self.__run_and_save(name, experiment, specification,
-                                                                           propagate_exceptions))
-        self._write_to_completed_json(name, specification_runner.get_completed(),
-                                      specification_runner.get_failed_specifications())
-
-        # Call batch complete functions
-        if specification_runner.get_exceptions() != []:
+            if continue_from_last_run:
+                need_to_run_specifications = self._find_uncompleted_specifications(name, specifications)
+            else:
+                need_to_run_specifications = specifications
             for callback in self.callbacks:
-                callback.on_batch_failure(specification_runner.get_exceptions(),
+                callback.set_experiment_name(name)
+
+            for specification in need_to_run_specifications:
+                put_in_event_queue(RegisterEvent(specification_hash(specification)))
+            specification_runner.run(need_to_run_specifications,
+                                     lambda specification: self.__run_and_save(name, experiment, specification,
+                                                                               propagate_exceptions))
+            self._write_to_completed_json(name, specification_runner.get_completed(),
                                           specification_runner.get_failed_specifications())
 
-        if specification_runner.get_completed() != []:
-            for callback in self.callbacks:
-                callback.on_batch_complete(specification_runner.get_completed())
+            # Call batch complete functions
+            if specification_runner.get_exceptions() != []:
+                for callback in self.callbacks:
+                    callback.on_batch_failure(specification_runner.get_exceptions(),
+                                              specification_runner.get_failed_specifications())
+
+            if specification_runner.get_completed() != []:
+                for callback in self.callbacks:
+                    callback.on_batch_complete(specification_runner.get_completed())
+        finally:
+            if dashboard_process is not None:
+                dashboard_process.terminate()
 
     def __run_and_save(self, name, experiment, specification, propagate_exceptions):
         experiment = deepcopy(experiment)
@@ -149,13 +172,12 @@ class ExperimentRunner(object):
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.DEBUG)
         file_handler = logging.FileHandler(get_log_file(experiment, specification_id))
-        # stream_handler = logging.StreamHandler()
         formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
-        # stream_handler.setFormatter(formatter)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
         experiment.set_logger_name(logger_name)
+        put_in_event_queue(BeginEvent(specification_id))
 
         def _interior_fn():
             if isinstance(experiment, CheckpointedExperiment):
@@ -178,6 +200,7 @@ class ExperimentRunner(object):
         else:
             _interior_fn()
             return None
+        put_in_event_queue(CompleteEvent(specification_id))
 
     def _save_run(self, name, experiment, specification, result):
         os.makedirs(get_save_file_directory(name, specification))
@@ -191,7 +214,8 @@ class ExperimentRunner(object):
                     json.dump(output_dictionary, f)
                 json_serialize_was_successful = True
             except Exception:
-                logging.getLogger(experiment.get_logger_name()).warning("Json serialization failed with exception", exc_info=True)
+                logging.getLogger(experiment.get_logger_name()).warning("Json serialization failed with exception",
+                                                                        exc_info=True)
                 os.remove(json_filename)
         # Try pickle serialization
         if self.force_pickle or not json_serialize_was_successful:
@@ -203,7 +227,8 @@ class ExperimentRunner(object):
                 with open(specification_file_location, "w") as f:
                     json.dump(specification, f)
             except Exception:
-                logging.getLogger(experiment.get_logger_name()).critical("Experiment results serialization failed!!!", exc_info=True)
+                logging.getLogger(experiment.get_logger_name()).critical("Experiment results serialization failed!!!",
+                                                                         exc_info=True)
                 try:
                     os.remove(pickle_file_location)
                 except FileNotFoundError:
