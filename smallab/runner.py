@@ -1,16 +1,16 @@
 import datetime
 import json
 import logging
-from queue import Full
-
-import dill
+import multiprocessing as mp
 import typing
 
+import dill
 import os
 from copy import deepcopy
 
 from smallab.callbacks import CallbackManager
 from smallab.checkpointed_experiment_handler import CheckpointedExperimentHandler
+from smallab.dashboard.dashboard import start_dashboard
 from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, StartExperimentEvent, RegisterEvent
 from smallab.dashboard.utils import LogToEventQueue, put_in_event_queue
 from smallab.experiment import CheckpointedExperiment, BaseExperiment
@@ -19,12 +19,9 @@ from smallab.file_locations import (get_save_file_directory, get_json_file_locat
                                     get_log_file)
 from smallab.runner_implementations.abstract_runner import AbstractRunner
 from smallab.runner_implementations.joblib_runner import JoblibRunner
-from smallab.specification_hashing import specification_hash
 from smallab.smallab_types import Specification
+from smallab.specification_hashing import specification_hash
 from smallab.utilities.logging_callback import LoggingCallback
-import multiprocessing as mp
-
-from smallab.dashboard.dashboard import start_dashboard, eventQueue
 
 
 class ExperimentRunner(object):
@@ -93,7 +90,7 @@ class ExperimentRunner(object):
 
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: BaseExperiment,
             continue_from_last_run=True, propagate_exceptions=False,
-            force_pickle=False, specification_runner: AbstractRunner = None,use_dashboard=True) -> typing.NoReturn:
+            force_pickle=False, specification_runner: AbstractRunner = None, use_dashboard=True) -> typing.NoReturn:
         """
         The method called to run an experiment
         :param propagate_exceptions: If True, exceptions won't be caught and logged as failed experiments but will cause the program to crash (like normal), useful for debugging exeperiments
@@ -166,8 +163,7 @@ class ExperimentRunner(object):
                     callback.on_batch_complete(specification_runner.get_completed())
         finally:
             if dashboard_process is not None:
-                    dashboard_process.terminate()
-
+                dashboard_process.terminate()
 
     def __run_and_save(self, name, experiment, specification, propagate_exceptions):
         experiment = deepcopy(experiment)
@@ -218,7 +214,8 @@ class ExperimentRunner(object):
                     json.dump(output_dictionary, f)
                 json_serialize_was_successful = True
             except Exception:
-                logging.getLogger(experiment.get_logger_name()).warning("Json serialization failed with exception", exc_info=True)
+                logging.getLogger(experiment.get_logger_name()).warning("Json serialization failed with exception",
+                                                                        exc_info=True)
                 os.remove(json_filename)
         # Try pickle serialization
         if self.force_pickle or not json_serialize_was_successful:
@@ -230,7 +227,8 @@ class ExperimentRunner(object):
                 with open(specification_file_location, "w") as f:
                     json.dump(specification, f)
             except Exception:
-                logging.getLogger(experiment.get_logger_name()).critical("Experiment results serialization failed!!!", exc_info=True)
+                logging.getLogger(experiment.get_logger_name()).critical("Experiment results serialization failed!!!",
+                                                                         exc_info=True)
                 try:
                     os.remove(pickle_file_location)
                 except FileNotFoundError:
