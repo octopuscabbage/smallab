@@ -9,6 +9,8 @@ from copy import deepcopy
 
 from smallab.callbacks import CallbackManager
 from smallab.checkpointed_experiment_handler import CheckpointedExperimentHandler
+from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, StartExperimentEvent, RegisterEvent
+from smallab.dashboard.utils import FileLikeQueue
 from smallab.experiment import CheckpointedExperiment, BaseExperiment
 from smallab.file_locations import (get_save_file_directory, get_json_file_location, get_pkl_file_location,
                                     get_specification_file_location, get_save_directory, get_experiment_save_directory,
@@ -18,6 +20,9 @@ from smallab.runner_implementations.joblib_runner import JoblibRunner
 from smallab.specification_hashing import specification_hash
 from smallab.smallab_types import Specification
 from smallab.utilities.logging_callback import LoggingCallback
+import multiprocessing as mp
+
+from smallab.dashboard.dashboard import start_dashboard, eventQueue
 
 
 class ExperimentRunner(object):
@@ -86,7 +91,7 @@ class ExperimentRunner(object):
 
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: BaseExperiment,
             continue_from_last_run=True, propagate_exceptions=False,
-            force_pickle=False, specification_runner: AbstractRunner = JoblibRunner(None)) -> typing.NoReturn:
+            force_pickle=False, specification_runner: AbstractRunner = JoblibRunner(None),use_dashboard=True) -> typing.NoReturn:
         """
         The method called to run an experiment
         :param propagate_exceptions: If True, exceptions won't be caught and logged as failed experiments but will cause the program to crash (like normal), useful for debugging exeperiments
@@ -99,6 +104,7 @@ class ExperimentRunner(object):
         :param specification_runner: An instance of ```AbstractRunner``` that will be used to run the specification
         :return: No return
         """
+        eventQueue.put(StartExperimentEvent(name))
         # Set up root smallab logger
         folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
         file_loc = os.path.join(folder_loc, "main.log")
@@ -110,9 +116,17 @@ class ExperimentRunner(object):
         fh = logging.FileHandler(file_loc)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
-        sh = logging.StreamHandler()
-        sh.setFormatter(formatter)
-        logger.addHandler(sh)
+        if not use_dashboard:
+            sh = logging.StreamHandler()
+            sh.setFormatter(formatter)
+            logger.addHandler(sh)
+        else:
+            fq = FileLikeQueue(eventQueue)
+            sh = logging.StreamHandler(fq)
+            sh.setFormatter(formatter)
+            logger.addHandler(sh)
+            dashboard_process = mp.Process(target=start_dashboard)
+            dashboard_process.start()
         experiment.set_logging_folder(folder_loc)
 
         self.force_pickle = force_pickle
@@ -126,12 +140,15 @@ class ExperimentRunner(object):
         for callback in self.callbacks:
             callback.set_experiment_name(name)
 
+        for specification in need_to_run_specifications:
+            eventQueue.put(RegisterEvent(specification_hash(specification)))
         specification_runner.run(need_to_run_specifications,
                                  lambda specification: self.__run_and_save(name, experiment, specification,
                                                                            propagate_exceptions))
         self._write_to_completed_json(name, specification_runner.get_completed(),
                                       specification_runner.get_failed_specifications())
 
+        #self.eventQueue.put("Done!".format())
         # Call batch complete functions
         if specification_runner.get_exceptions() != []:
             for callback in self.callbacks:
@@ -141,6 +158,9 @@ class ExperimentRunner(object):
         if specification_runner.get_completed() != []:
             for callback in self.callbacks:
                 callback.on_batch_complete(specification_runner.get_completed())
+        if use_dashboard:
+                dashboard_process.terminate()
+
 
     def __run_and_save(self, name, experiment, specification, propagate_exceptions):
         experiment = deepcopy(experiment)
@@ -156,6 +176,7 @@ class ExperimentRunner(object):
         logger.addHandler(file_handler)
 
         experiment.set_logger_name(logger_name)
+        eventQueue.put(BeginEvent(specification_id))
 
         def _interior_fn():
             if isinstance(experiment, CheckpointedExperiment):
@@ -178,6 +199,7 @@ class ExperimentRunner(object):
         else:
             _interior_fn()
             return None
+        eventQueue.put(CompleteEvent(specification_id))
 
     def _save_run(self, name, experiment, specification, result):
         os.makedirs(get_save_file_directory(name, specification))
