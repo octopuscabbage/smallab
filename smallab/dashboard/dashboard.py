@@ -206,7 +206,6 @@ def run(stdscr):
         # Drain Queue:
         while not eventQueue.empty():
             event = eventQueue.get()
-            # Todo add an event for discovering but not begining an experiment
             if isinstance(event, BeginEvent):
                 registered.remove(event.specification_id)
                 active.append(event.specification_id)
@@ -217,7 +216,6 @@ def run(stdscr):
                 timeestimator.record_completion(event.specification_id)
             elif isinstance(event, ProgressEvent):
                 specification_progress[event.specification_id] = (event.progress, event.max)
-                # TODO this assumes you do one iteration, make it more robust to handle other cases (like budget)
                 timeestimator.record_iteration(event.specification_id,event.progress)
             elif isinstance(event, LogEvent):
                 if not event.message.isspace():
@@ -243,10 +241,4 @@ def run(stdscr):
 
 
 def start_dashboard():
-    # print(logging.getLogger().handlers)
-    # logging.getLogger().removeHandler(logging.getLogger().handlers[0])
-    # curses.start_color()
-    # curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
-    # curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-    # curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
     curses.wrapper(run)
