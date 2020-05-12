@@ -91,7 +91,7 @@ class ExperimentRunner(object):
 
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: BaseExperiment,
             continue_from_last_run=True, propagate_exceptions=False,
-            force_pickle=False, specification_runner: AbstractRunner = JoblibRunner(None),use_dashboard=True) -> typing.NoReturn:
+            force_pickle=False, specification_runner: AbstractRunner = None,use_dashboard=True) -> typing.NoReturn:
         """
         The method called to run an experiment
         :param propagate_exceptions: If True, exceptions won't be caught and logged as failed experiments but will cause the program to crash (like normal), useful for debugging exeperiments
@@ -102,63 +102,69 @@ class ExperimentRunner(object):
         :param show_progress: Whether or not to show a progress bar for experiment completion
         :param force_pickle: If true, don't attempt to json serialze results and default to pickling
         :param specification_runner: An instance of ```AbstractRunner``` that will be used to run the specification
+        :param use_dashboard: If true, use the terminal monitoring dashboard. If false, just stream logs to stdout.
         :return: No return
         """
-        eventQueue.put(StartExperimentEvent(name))
-        # Set up root smallab logger
-        folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
-        file_loc = os.path.join(folder_loc, "main.log")
-        if not os.path.exists(folder_loc):
-            os.makedirs(folder_loc)
-        logger = logging.getLogger("smallab")
-        logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        fh = logging.FileHandler(file_loc)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-        if not use_dashboard:
-            sh = logging.StreamHandler()
-            sh.setFormatter(formatter)
-            logger.addHandler(sh)
-        else:
-            fq = FileLikeQueue(eventQueue)
-            sh = logging.StreamHandler(fq)
-            sh.setFormatter(formatter)
-            logger.addHandler(sh)
-            dashboard_process = mp.Process(target=start_dashboard)
-            dashboard_process.start()
-        experiment.set_logging_folder(folder_loc)
+        if specification_runner is None:
+            specification_runner = JoblibRunner(None)
+        dashboard_process = None
+        try:
+            eventQueue.put(StartExperimentEvent(name))
+            # Set up root smallab logger
+            folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
+            file_loc = os.path.join(folder_loc, "main.log")
+            if not os.path.exists(folder_loc):
+                os.makedirs(folder_loc)
+            logger = logging.getLogger("smallab")
+            logger.setLevel(logging.DEBUG)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            fh = logging.FileHandler(file_loc)
+            fh.setFormatter(formatter)
+            logger.addHandler(fh)
+            if not use_dashboard:
+                sh = logging.StreamHandler()
+                sh.setFormatter(formatter)
+                logger.addHandler(sh)
+            else:
+                fq = FileLikeQueue(eventQueue)
+                sh = logging.StreamHandler(fq)
+                sh.setFormatter(formatter)
+                logger.addHandler(sh)
+                dashboard_process = mp.Process(target=start_dashboard)
+                dashboard_process.start()
+            experiment.set_logging_folder(folder_loc)
 
-        self.force_pickle = force_pickle
-        if not os.path.exists(get_save_directory(name)):
-            os.makedirs(get_save_directory(name))
+            self.force_pickle = force_pickle
+            if not os.path.exists(get_save_directory(name)):
+                os.makedirs(get_save_directory(name))
 
-        if continue_from_last_run:
-            need_to_run_specifications = self._find_uncompleted_specifications(name, specifications)
-        else:
-            need_to_run_specifications = specifications
-        for callback in self.callbacks:
-            callback.set_experiment_name(name)
-
-        for specification in need_to_run_specifications:
-            eventQueue.put(RegisterEvent(specification_hash(specification)))
-        specification_runner.run(need_to_run_specifications,
-                                 lambda specification: self.__run_and_save(name, experiment, specification,
-                                                                           propagate_exceptions))
-        self._write_to_completed_json(name, specification_runner.get_completed(),
-                                      specification_runner.get_failed_specifications())
-
-        # Call batch complete functions
-        if specification_runner.get_exceptions() != []:
+            if continue_from_last_run:
+                need_to_run_specifications = self._find_uncompleted_specifications(name, specifications)
+            else:
+                need_to_run_specifications = specifications
             for callback in self.callbacks:
-                callback.on_batch_failure(specification_runner.get_exceptions(),
+                callback.set_experiment_name(name)
+
+            for specification in need_to_run_specifications:
+                eventQueue.put(RegisterEvent(specification_hash(specification)))
+            specification_runner.run(need_to_run_specifications,
+                                     lambda specification: self.__run_and_save(name, experiment, specification,
+                                                                               propagate_exceptions))
+            self._write_to_completed_json(name, specification_runner.get_completed(),
                                           specification_runner.get_failed_specifications())
 
-        if specification_runner.get_completed() != []:
-            for callback in self.callbacks:
-                callback.on_batch_complete(specification_runner.get_completed())
-        if use_dashboard:
-                dashboard_process.terminate()
+            # Call batch complete functions
+            if specification_runner.get_exceptions() != []:
+                for callback in self.callbacks:
+                    callback.on_batch_failure(specification_runner.get_exceptions(),
+                                              specification_runner.get_failed_specifications())
+
+            if specification_runner.get_completed() != []:
+                for callback in self.callbacks:
+                    callback.on_batch_complete(specification_runner.get_completed())
+        finally:
+            if dashboard_process is not None:
+                    dashboard_process.terminate()
 
 
     def __run_and_save(self, name, experiment, specification, propagate_exceptions):

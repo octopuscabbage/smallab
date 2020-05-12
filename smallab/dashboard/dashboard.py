@@ -5,8 +5,8 @@ import time
 
 import numpy as np
 
-from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, ProgressEvent, LogEvent, StartExperimentEvent, \
-    RegisterEvent
+from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, ProgressEvent, LogEvent, StartExperimentEvent,
+    RegisterEvent)
 
 #This is a globally accessible queue which stores the events for the dashboard
 eventQueue = mp.Queue(maxsize=200)
