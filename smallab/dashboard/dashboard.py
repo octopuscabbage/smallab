@@ -1,4 +1,5 @@
 import curses
+import logging
 import math
 import multiprocessing as mp
 import time
@@ -204,40 +205,43 @@ def run(stdscr):
     registered = []
     while True:
         # Drain Queue:
-        while not eventQueue.empty():
-            event = eventQueue.get()
-            if isinstance(event, BeginEvent):
-                registered.remove(event.specification_id)
-                active.append(event.specification_id)
-                timeestimator.record_start(event.specification_id)
-            elif isinstance(event, CompleteEvent):
-                active.remove(event.specification_id)
-                complete.append(event.specification_id)
-                timeestimator.record_completion(event.specification_id)
-            elif isinstance(event, ProgressEvent):
-                specification_progress[event.specification_id] = (event.progress, event.max)
-                timeestimator.record_iteration(event.specification_id,event.progress)
-            elif isinstance(event, LogEvent):
-                if not event.message.isspace():
-                    log_spool.append(event.message)
-            elif isinstance(event, StartExperimentEvent):
-                experiment_name = event.name
-            elif isinstance(event, RegisterEvent):
-                registered.append(event.specification_id)
-            else:
-                print("Dashboard action not understood")
+        try:
+            while not eventQueue.empty():
+                event = eventQueue.get()
+                if isinstance(event, BeginEvent):
+                    registered.remove(event.specification_id)
+                    active.append(event.specification_id)
+                    timeestimator.record_start(event.specification_id)
+                elif isinstance(event, CompleteEvent):
+                    active.remove(event.specification_id)
+                    complete.append(event.specification_id)
+                    timeestimator.record_completion(event.specification_id)
+                elif isinstance(event, ProgressEvent):
+                    specification_progress[event.specification_id] = (event.progress, event.max)
+                    timeestimator.record_iteration(event.specification_id,event.progress)
+                elif isinstance(event, LogEvent):
+                    if not event.message.isspace():
+                        log_spool.append(event.message)
+                elif isinstance(event, StartExperimentEvent):
+                    experiment_name = event.name
+                elif isinstance(event, RegisterEvent):
+                    registered.append(event.specification_id)
+                else:
+                    print("Dashboard action not understood")
 
-        # Draw Screen
-        stdscr.clear()
-        height, width = stdscr.getmaxyx()
-        row = 0
-        row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
-                                 specification_progress, timeestimator)
-        row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height)
-        row = draw_log_widget(row, stdscr, width, height, log_spool)
-        stdscr.refresh()
-        time.sleep(0.1)
-        i += 1
+            # Draw Screen
+            stdscr.clear()
+            height, width = stdscr.getmaxyx()
+            row = 0
+            row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
+                                     specification_progress, timeestimator)
+            row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height)
+            row = draw_log_widget(row, stdscr, width, height, log_spool)
+            stdscr.refresh()
+            time.sleep(0.1)
+        except Exception:
+            logging.getLogger("smallab.dashboard").error("Dashboard Error",exc_info=True)
+
 
 
 def start_dashboard():
