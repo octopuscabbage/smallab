@@ -87,7 +87,10 @@ class TimeEstimator():
                                                        .75) * remaining_iterations
 
         #Divide by active number since that's the amount of processes running
-        return expected_seconds_to_complete_all / len(active), lower_quartile_complete_all / len(active), higher_quartile_complete_all / len(active)
+        if active:
+            return expected_seconds_to_complete_all / len(active), lower_quartile_complete_all / len(active), higher_quartile_complete_all / len(active)
+        else:
+            return 0,0,0
 
 
 intervals = (
@@ -136,18 +139,21 @@ def draw_header_widget(row, stdscr, experiment_name, width, complete, active, re
     return row
 
 
-def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed):
+def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed,specification_id_to_specification,specification_readout_index):
     start_row = row
     # Decide to draw in single or double column
     second_column_begins = math.floor(width / 2)
     max_height = math.floor(height / 2)
     use_double_column_layout = width >= 40 and len(active) + len(registered) > max_height - row
     on_second_column = False
+    max_specification_length = max(map(len,active + registered+ failed)) + 1
     for i, active_specification in enumerate(active + registered+ failed):
         if use_double_column_layout and on_second_column:
             stdscr.addstr(row, second_column_begins,active_specification)
+            specification_readout_start_index = second_column_begins + max_specification_length
         else:
             stdscr.addstr(row, 0, active_specification)
+            specification_readout_start_index = max_specification_length
         if use_double_column_layout:
             bar_width = math.floor(width / 8)
         else:
@@ -162,6 +168,7 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
             status_string += "=" * bars_complete
             status_string += " " * bars_not_complete
 
+
         elif active_specification in active:
             status_string = "Running..."
         elif active_specification in failed:
@@ -171,9 +178,27 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
         if use_double_column_layout and not on_second_column:
             status_string += "||"
             stdscr.addstr(row, second_column_begins - len(status_string), status_string)
+            specification_readout_end_index =second_column_begins - len(status_string)
         else:
             stdscr.addstr(row, width - len(status_string), status_string)
+            specification_readout_end_index = width - len(status_string)
 
+        specification = specification_id_to_specification[active_specification]
+        specification_string_start_index = specification_readout_index % len(specification)
+        max_allowed_length = specification_readout_end_index-specification_readout_start_index-1
+        if len(specification) <= max_allowed_length:
+            stdscr.addstr(row, specification_readout_start_index,
+                          specification)
+        else:
+            overflow = specification_string_start_index+max_allowed_length - len(specification) - 1
+            if overflow > 0:
+                stdscr.addstr(row, specification_readout_start_index,
+                              specification[
+                              specification_string_start_index:specification_string_start_index + max_allowed_length] + " "+ specification[:overflow])
+
+            else:
+                stdscr.addstr(row, specification_readout_start_index,
+                              specification[specification_string_start_index:specification_string_start_index+max_allowed_length])
         row += 1
         if row >= max_height:
             if use_double_column_layout and not on_second_column:
@@ -211,7 +236,12 @@ def run(stdscr):
     specification_progress = dict()
     registered = []
     failed = []
+    specification_ids_to_specification = dict()
+    start_time = time.time()
+    specification_readout_index = 0
     while True:
+        if time.time() - start_time > 1:
+            specification_readout_index += 1
         # Drain Queue:
         try:
             while not eventQueue.empty():
@@ -220,6 +250,7 @@ def run(stdscr):
                     registered.remove(event.specification_id)
                     active.append(event.specification_id)
                     timeestimator.record_start(event.specification_id)
+
                 elif isinstance(event, CompleteEvent):
                     active.remove(event.specification_id)
                     complete.append(event.specification_id)
@@ -234,6 +265,7 @@ def run(stdscr):
                     experiment_name = event.name
                 elif isinstance(event, RegisterEvent):
                     registered.append(event.specification_id)
+                    specification_ids_to_specification[event.specification_id] = str(dict(event.specification))
                 elif isinstance(event,FailedEvent):
                     active.remove(event.specification_id)
                     failed.append(event.specification_id)
@@ -246,7 +278,7 @@ def run(stdscr):
             row = 0
             row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
                                      specification_progress, timeestimator,failed)
-            row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed)
+            row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed,specification_ids_to_specification,specification_readout_index)
             row = draw_log_widget(row, stdscr, width, height, log_spool)
             stdscr.refresh()
             time.sleep(0.1)

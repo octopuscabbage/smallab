@@ -146,7 +146,7 @@ class ExperimentRunner(object):
                 callback.set_experiment_name(name)
 
             for specification in need_to_run_specifications:
-                put_in_event_queue(RegisterEvent(specification_hash(specification)))
+                put_in_event_queue(RegisterEvent(specification_hash(specification),specification))
             specification_runner.run(need_to_run_specifications,
                                      lambda specification: self.__run_and_save(name, experiment, specification,
                                                                                propagate_exceptions))
