@@ -6,8 +6,9 @@ import time
 
 import numpy as np
 
-from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, ProgressEvent, LogEvent, StartExperimentEvent,
-    RegisterEvent)
+from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, ProgressEvent, LogEvent,
+                                                StartExperimentEvent,
+                                                RegisterEvent, FailedEvent)
 
 #This is a globally accessible queue which stores the events for the dashboard
 eventQueue = mp.Queue(maxsize=200)
@@ -85,7 +86,8 @@ class TimeEstimator():
             higher_quartile_complete_all += np.quantile(times_per_iteration,
                                                        .75) * remaining_iterations
 
-        return expected_seconds_to_complete_all, lower_quartile_complete_all, higher_quartile_complete_all
+        #Divide by active number since that's the amount of processes running
+        return expected_seconds_to_complete_all / len(active), lower_quartile_complete_all / len(active), higher_quartile_complete_all / len(active)
 
 
 intervals = (
@@ -111,14 +113,17 @@ def display_time(seconds, granularity=2):
 
 
 def draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered, specification_progress,
-                       timeestimator):
+                       timeestimator,failed):
     stdscr.addstr(0, 0, "Smallab Running: {name}".format(name=experiment_name))
     row += 1
     stdscr.addstr(row, 0, "-" * width)
     row += 1
-    stdscr.addstr(row, 0, "Completed {num_complete} / {num_total}".format(num_complete=len(complete),
+    completed_failed_string = "Completed {num_complete} / {num_total}".format(num_complete=len(complete),
                                                                           num_total=len(complete) + len(active) + len(
-                                                                              registered)))
+                                                                              registered))
+    if failed:
+        completed_failed_string += " - Failed: {num_failed}".format(num_failed=len(failed))
+    stdscr.addstr(row, 0,completed_failed_string)
     t = timeestimator.compute_time_stats(specification_progress, active,registered)
     if t is not None:
         expected, lower, higher = t
@@ -131,14 +136,14 @@ def draw_header_widget(row, stdscr, experiment_name, width, complete, active, re
     return row
 
 
-def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height):
+def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed):
     start_row = row
     # Decide to draw in single or double column
     second_column_begins = math.floor(width / 2)
     max_height = math.floor(height / 2)
     use_double_column_layout = width >= 40 and len(active) + len(registered) > max_height - row
     on_second_column = False
-    for i, active_specification in enumerate(active + registered):
+    for i, active_specification in enumerate(active + registered+ failed):
         if use_double_column_layout and on_second_column:
             stdscr.addstr(row, second_column_begins,active_specification)
         else:
@@ -159,6 +164,8 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
 
         elif active_specification in active:
             status_string = "Running..."
+        elif active_specification in failed:
+            status_string = "Failed!"
         else:
             status_string = "Waiting..."
         if use_double_column_layout and not on_second_column:
@@ -203,6 +210,7 @@ def run(stdscr):
     experiment_name = ""
     specification_progress = dict()
     registered = []
+    failed = []
     while True:
         # Drain Queue:
         try:
@@ -226,6 +234,9 @@ def run(stdscr):
                     experiment_name = event.name
                 elif isinstance(event, RegisterEvent):
                     registered.append(event.specification_id)
+                elif isinstance(event,FailedEvent):
+                    active.remove(event.specification_id)
+                    failed.append(event.specification_id)
                 else:
                     print("Dashboard action not understood")
 
@@ -234,13 +245,13 @@ def run(stdscr):
             height, width = stdscr.getmaxyx()
             row = 0
             row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
-                                     specification_progress, timeestimator)
-            row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height)
+                                     specification_progress, timeestimator,failed)
+            row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed)
             row = draw_log_widget(row, stdscr, width, height, log_spool)
             stdscr.refresh()
             time.sleep(0.1)
-        except Exception:
-            logging.getLogger("smallab.dashboard").error("Dashboard Error",exc_info=True)
+        except Exception as e:
+            logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e),exc_info=True)
 
 
 

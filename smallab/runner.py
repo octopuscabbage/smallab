@@ -11,7 +11,8 @@ from copy import deepcopy
 from smallab.callbacks import CallbackManager
 from smallab.checkpointed_experiment_handler import CheckpointedExperimentHandler
 from smallab.dashboard.dashboard import start_dashboard
-from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, StartExperimentEvent, RegisterEvent
+from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, StartExperimentEvent, RegisterEvent, \
+    FailedEvent
 from smallab.dashboard.utils import LogToEventQueue, put_in_event_queue
 from smallab.experiment import CheckpointedExperiment, BaseExperiment
 from smallab.file_locations import (get_save_file_directory, get_json_file_location, get_pkl_file_location,
@@ -192,15 +193,18 @@ class ExperimentRunner(object):
         if not propagate_exceptions:
             try:
                 _interior_fn()
+
+                put_in_event_queue(CompleteEvent(specification_id))
             except Exception as e:
                 logger.error("Specification Failure", exc_info=True)
+                put_in_event_queue(FailedEvent(specification_id))
                 for callback in self.callbacks:
                     callback.on_specification_failure(e, specification)
                 return e
         else:
             _interior_fn()
+            put_in_event_queue(CompleteEvent(specification_id))
             return None
-        put_in_event_queue(CompleteEvent(specification_id))
 
     def _save_run(self, name, experiment, specification, result):
         os.makedirs(get_save_file_directory(name, specification))

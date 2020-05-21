@@ -28,3 +28,6 @@ class StartExperimentEvent():
 class RegisterEvent():
     def __init__(self, specification_id):
         self.specification_id = specification_id
+class FailedEvent():
+    def __init__(self,specification_id):
+        self.specification_id = specification_id
