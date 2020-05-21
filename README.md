@@ -1,11 +1,14 @@
 [![Documentation Status](https://readthedocs.org/projects/smallab/badge/?version=latest)](https://smallab.readthedocs.io/en/latest/?badge=latest)
 
+![](https://github.com/octopuscabbage/smallab/blob/master/smallab.gif)
+
 # smallab
 :small_blue_diamond: :microscope: :small_blue_diamond:
 
 smallab (Small Lab) is an experiment framework designed to be easy to use with your experiment. 
 
 The code in this repo should be understandable as a whole in at most 10 minutes.
+
 
 ## Features
 
