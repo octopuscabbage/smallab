@@ -221,7 +221,10 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
     for log in log_spool[-remaining_rows + 1:]:
         message = log[:width]
         if not message.isspace():
-            stdscr.addstr(row, 0, message)
+            try:
+                stdscr.addstr(row, 0, message)
+            except:
+                pass
             row += 1
     return row
 

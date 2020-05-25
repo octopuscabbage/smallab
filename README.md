@@ -37,7 +37,7 @@ import os
 import dill
 
 #What you need to import from smallab
-from smallab.experiment import Experiment
+from smallab.experiment_types.experiment import Experiment
 from smallab.runner import ExperimentRunner
 
 

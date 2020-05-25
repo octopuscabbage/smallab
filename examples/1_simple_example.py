@@ -6,11 +6,13 @@ import random
 import typing
 
 from examples.example_utils import delete_experiments_folder
-from smallab.experiment import Experiment
-from smallab.runner import ExperimentRunner
+from smallab.experiment_types.experiment import Experiment
 
 
 # Write a simple experiment
+from smallab.runner.runner import ExperimentRunner
+
+
 class SimpleExperiment(Experiment):
     # Need to implement this method, will be passed the specification
     # Return a dictionary of results

@@ -6,8 +6,8 @@ import typing
 
 import random
 
-from smallab.experiment import Experiment
-from smallab.runner import ExperimentRunner
+from smallab.experiment_types.experiment import Experiment
+from smallab.runner.runner import ExperimentRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.specification_generator import SpecificationGenerator
 from examples.example_utils import delete_experiments_folder

@@ -1,15 +1,14 @@
 import dill
 import typing
 import unittest
-from threading import Lock
 
 import numpy as np
 import os
 
-from smallab.checkpointed_experiment_handler import CheckpointedExperimentHandler
-from smallab.experiment import CheckpointedExperiment
+from smallab.experiment_types.handlers.checkpointed_experiment_handler import CheckpointedExperimentHandler
+from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment
 from smallab.file_locations import get_save_file_directory, get_partial_save_directory
-from smallab.runner import ExperimentRunner
+from smallab.runner.runner import ExperimentRunner
 from smallab.runner_implementations.main_process_runner import MainRunner
 from smallab.smallab_types import Specification
 from tests.utils import delete_experiments_folder
