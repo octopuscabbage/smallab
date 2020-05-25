@@ -13,6 +13,8 @@ class OverlappingOutputCheckpointedExperimentReturnValue():
         :param should_continue: True if the experiment needs to continue (to perform more iterations etc)
         :param specification: The specification this experiment will be saved under (not necessarily the specification passed to the experiment)
         :param return_value: The return value from this output
+        :param progress: The progress (out of max_iterations)
+        :param max_iterations: The maximum amount of iterations that will be run
         """
         self.should_continue = should_continue
         self.specification = specification
