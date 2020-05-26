@@ -6,7 +6,6 @@ import dill
 import os
 from dateutil.parser import parse
 
-from smallab.dashboard.dashboard import eventQueue
 from smallab.dashboard.dashboard_events import ProgressEvent
 from smallab.dashboard.utils import put_in_event_queue
 from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment

@@ -3,11 +3,12 @@ import typing
 import abc
 
 from smallab.experiment_types.experiment import ExperimentBase
-from smallab.smallab_types import Specification
+from smallab.smallab_types import Specification, ExpProgressTuple
 
 
 class OverlappingOutputCheckpointedExperimentReturnValue():
-    def __init__(self,should_continue:bool,specification:Specification,return_value:typing.Dict,progress:typing.SupportsFloat,max_iterations:typing.SupportsFloat):
+    def __init__(self, should_continue: bool, specification: Specification, return_value: typing.Dict,
+                 progress: typing.SupportsFloat, max_iterations: typing.SupportsFloat):
         """
         The holder class for output from an OverlappingOutputCheckpointedExperiment
         :param should_continue: True if the experiment needs to continue (to perform more iterations etc)
@@ -33,10 +34,11 @@ class OverlappingOutputCheckpointedExperiment(ExperimentBase):
     The experiment is also checkpointed between iterations you want to save like CheckpointedExperiment (and thus must
     also be picklable).
     """
+
     @abc.abstractmethod
-    def initialize(self,specification: Specification):
-        pass
-    @abc.abstractmethod
-    def step(self) -> typing.Union[typing.Tuple[float,float],OverlappingOutputCheckpointedExperimentReturnValue]:
+    def initialize(self, specification: Specification):
         pass
 
+    @abc.abstractmethod
+    def step(self) -> typing.Union[ExpProgressTuple, OverlappingOutputCheckpointedExperimentReturnValue]:
+        pass

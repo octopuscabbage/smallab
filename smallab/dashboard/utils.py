@@ -14,6 +14,7 @@ class LogToEventQueue:
     def flush(self):
         pass
 
+
 def put_in_event_queue(o):
     '''
     This is just to put in the event queue without waiting or failing if it's full

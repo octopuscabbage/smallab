@@ -6,19 +6,13 @@ import typing
 
 import dill
 import os
-from copy import deepcopy
 
 from smallab.callbacks import CallbackManager
-from smallab.experiment_types.handlers.checkpointed_experiment_handler import CheckpointedExperimentHandler
 from smallab.dashboard.dashboard import start_dashboard
-from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, StartExperimentEvent, RegisterEvent, \
-    FailedEvent
+from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent
 from smallab.dashboard.utils import LogToEventQueue, put_in_event_queue
-from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment
 from smallab.experiment_types.experiment import ExperimentBase
-from smallab.file_locations import (get_save_file_directory, get_json_file_location, get_pkl_file_location,
-                                    get_specification_file_location, get_save_directory, get_experiment_save_directory,
-                                    get_log_file)
+from smallab.file_locations import (get_save_directory, get_experiment_save_directory)
 from smallab.runner.runner_methods import run_and_save
 from smallab.runner_implementations.abstract_runner import AbstractRunner
 from smallab.runner_implementations.joblib_runner import JoblibRunner
@@ -131,7 +125,7 @@ class ExperimentRunner(object):
                 fq = LogToEventQueue()
                 sh = logging.StreamHandler(fq)
                 sh.setFormatter(formatter)
-                #Add to root so all logging appears in dashboard not just smallab.
+                # Add to root so all logging appears in dashboard not just smallab.
                 logging.getLogger().addHandler(sh)
                 dashboard_process = mp.Process(target=start_dashboard)
                 dashboard_process.start()
@@ -149,10 +143,11 @@ class ExperimentRunner(object):
                 callback.set_experiment_name(name)
 
             for specification in need_to_run_specifications:
-                put_in_event_queue(RegisterEvent(specification_hash(specification),specification))
+                put_in_event_queue(RegisterEvent(specification_hash(specification), specification))
             specification_runner.run(need_to_run_specifications,
                                      lambda specification: run_and_save(name, experiment, specification,
-                                                                               propagate_exceptions,self.callbacks,self.force_pickle))
+                                                                        propagate_exceptions, self.callbacks,
+                                                                        self.force_pickle))
             self._write_to_completed_json(name, specification_runner.get_completed(),
                                           specification_runner.get_failed_specifications())
 
@@ -168,6 +163,3 @@ class ExperimentRunner(object):
         finally:
             if dashboard_process is not None:
                 dashboard_process.terminate()
-
-
-

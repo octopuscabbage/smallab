@@ -1,19 +1,16 @@
 import json
 import logging
-import types
-
-from copy import deepcopy
 
 import dill
 import os
+import types
+from copy import deepcopy
 
 from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, FailedEvent
 from smallab.dashboard.utils import put_in_event_queue
-from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment
 from smallab.experiment_types.handlers.registry import run_with_correct_handler
-from smallab.experiment_types.handlers.checkpointed_experiment_handler import CheckpointedExperimentHandler
-from smallab.file_locations import get_json_file_location, get_save_file_directory, get_pkl_file_location, \
-    get_specification_file_location, get_log_file
+from smallab.file_locations import (get_json_file_location, get_save_file_directory, get_pkl_file_location,
+                                    get_specification_file_location, get_log_file)
 from smallab.specification_hashing import specification_hash
 
 
@@ -53,7 +50,8 @@ def save_run(name, experiment, specification, result, force_pickle):
             except FileNotFoundError:
                 pass
 
-def run_and_save(name, experiment, specification, propagate_exceptions,callbacks,force_pickle):
+
+def run_and_save(name, experiment, specification, propagate_exceptions, callbacks, force_pickle):
     experiment = deepcopy(experiment)
     specification_id = specification_hash(specification)
     logger_name = "smallab.{specification_id}".format(specification_id=specification_id)
@@ -68,12 +66,12 @@ def run_and_save(name, experiment, specification, propagate_exceptions,callbacks
     put_in_event_queue(BeginEvent(specification_id))
 
     def _interior_fn():
-        result = run_with_correct_handler(experiment,name,specification)
-        if isinstance(result,types.GeneratorType):
+        result = run_with_correct_handler(experiment, name, specification)
+        if isinstance(result, types.GeneratorType):
             for cur_result in result:
-                save_run(name,experiment,cur_result["specification"],cur_result["result"],force_pickle)
+                save_run(name, experiment, cur_result["specification"], cur_result["result"], force_pickle)
         else:
-            save_run(name, experiment, specification, result,force_pickle)
+            save_run(name, experiment, specification, result, force_pickle)
         for callback in callbacks:
             callback.on_specification_complete(specification, result)
         return None
@@ -93,4 +91,3 @@ def run_and_save(name, experiment, specification, propagate_exceptions,callbacks
         _interior_fn()
         put_in_event_queue(CompleteEvent(specification_id))
         return None
-

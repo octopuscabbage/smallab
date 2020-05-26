@@ -9,7 +9,5 @@ from smallab.smallab_types import Specification
 class BaseHandler(abc.ABC):
 
     @abc.abstractmethod
-    def run(self,experiment:ExperimentBase,name:typing.AnyStr,specification:Specification):
+    def run(self, experiment: ExperimentBase, name: typing.AnyStr, specification: Specification):
         pass
-
-

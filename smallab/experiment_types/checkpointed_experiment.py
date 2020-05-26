@@ -3,7 +3,7 @@ import typing
 import abc
 
 from smallab.experiment_types.experiment import ExperimentBase
-from smallab.smallab_types import Specification
+from smallab.smallab_types import Specification, ExpProgressTuple
 
 
 class CheckpointedExperiment(ExperimentBase):
@@ -25,7 +25,7 @@ class CheckpointedExperiment(ExperimentBase):
         pass
 
     @abc.abstractmethod
-    def step(self) -> typing.Union[typing.Tuple[float,float],typing.Dict]:
+    def step(self) -> typing.Union[ExpProgressTuple, typing.Dict]:
         """
         This method is to do work between checkpoints.
         Intermediate results should be saved to self
