@@ -8,8 +8,9 @@ import typing
 import random
 from numpy.random.mtrand import RandomState
 
-from smallab.experiment import Experiment, CheckpointedExperiment
-from smallab.runner import ExperimentRunner
+from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment
+from smallab.experiment_types.experiment import Experiment
+from smallab.runner.runner import ExperimentRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.smallab_types import Specification
 from smallab.specification_generator import SpecificationGenerator
@@ -28,8 +29,9 @@ class SimpleExperiment(CheckpointedExperiment):
         self.i = 0
 
     #Step will be called many times until it does not return None
-    def step(self) -> typing.Optional[typing.Dict]:
+    def step(self):
         logging.getLogger(self.get_logger_name()).info("Stepping")
+        self.i += 1
         if self.i < self.num_calls:
             self.r = self.rs.random()
             time.sleep(10 * self.r)
@@ -41,8 +43,8 @@ class SimpleExperiment(CheckpointedExperiment):
             #Done with the experiment, return the results dictionary like normal
             return {"number": self.r}
         else:
-            #This experiment isn't done, return None to signify step needs to be called again
-            return
+            #This experiment isn't done, return the progress as a tuple to update the dashboard
+            return (self.i, self.num_calls)
 
 
 #Same specification as before

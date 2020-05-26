@@ -5,11 +5,13 @@ import random
 import typing
 
 from examples.example_utils import delete_experiments_folder
-from smallab.experiment import Experiment
-from smallab.runner import ExperimentRunner
+from smallab.experiment_types.experiment import Experiment
 
 
 #This is another simple experiment, this time with logging involved!
+from smallab.runner.runner import ExperimentRunner
+
+
 class SimpleExperiment(Experiment):
     def main(self, specification: typing.Dict) -> typing.Dict:
         #Get logger name is set per experiment, all logging here will go to a seperate file with the experiment name and go to a main log as well

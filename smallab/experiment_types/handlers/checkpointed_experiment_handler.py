@@ -6,16 +6,16 @@ import dill
 import os
 from dateutil.parser import parse
 
-from smallab.dashboard.dashboard import eventQueue
 from smallab.dashboard.dashboard_events import ProgressEvent
 from smallab.dashboard.utils import put_in_event_queue
-from smallab.experiment import CheckpointedExperiment
+from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment
+from smallab.experiment_types.handlers.base_handler import BaseHandler
 from smallab.file_locations import get_partial_save_directory
 from smallab.smallab_types import Specification
 from smallab.specification_hashing import specification_hash
 
 
-class CheckpointedExperimentHandler():
+class CheckpointedExperimentHandler(BaseHandler):
     """
     An internal handler to handle running checkpointed experiments.
     """
@@ -31,18 +31,18 @@ class CheckpointedExperimentHandler():
         loaded_experiment = self.load_most_recent(name, specification)
         if loaded_experiment is None:
             experiment.initialize(specification)
-            self.__save_checkpoint(experiment, name, specification)
+            self._save_checkpoint(experiment, name, specification)
         else:
             experiment = loaded_experiment
         result = experiment.step()
-        self.publish_completion(specification, result)
+        self.publish_progress(specification, result)
         while result is None or isinstance(result, tuple):
-            self.__save_checkpoint(experiment, name, specification)
+            self._save_checkpoint(experiment, name, specification)
             result = experiment.step()
-            self.publish_completion(specification, result)
+            self.publish_progress(specification, result)
         return result
 
-    def publish_completion(self, specification, result):
+    def publish_progress(self, specification, result):
         if isinstance(result, tuple):
             put_in_event_queue(ProgressEvent(specification_hash(specification), result[0], result[1]))
 
@@ -87,7 +87,7 @@ class CheckpointedExperimentHandler():
             list(map(parse, map(lambda x: x.strip(".pkl"), checkpoints))))
         return checkpoints
 
-    def __save_checkpoint(self, experiment, name, specification):
+    def _save_checkpoint(self, experiment, name, specification):
         experiment_hash = specification_hash(specification)
         checkpoint_name = str(datetime.datetime.now())
         try:

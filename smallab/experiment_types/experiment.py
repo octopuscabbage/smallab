@@ -5,7 +5,7 @@ import abc
 from smallab.smallab_types import Specification
 
 
-class BaseExperiment(abc.ABC):
+class ExperimentBase(abc.ABC):
     def set_logger_name(self, logger):
         """
         Called by ExperimentRunner to set a per-experiment logger
@@ -36,7 +36,7 @@ class BaseExperiment(abc.ABC):
         return self.logging_folder
 
 
-class Experiment(BaseExperiment):
+class Experiment(ExperimentBase):
     """
     This represents the base class for what the user needs to implement.
     The main method takes a dictionary which is the specification and returns a dictionary which is the result.
@@ -57,33 +57,5 @@ class Experiment(BaseExperiment):
 
         :param specification: A dictionary passed which represents the variables of this experiment
         :return: A dictionary of results which will be serialized and saved if this experiment is succesful
-        """
-        pass
-
-
-class CheckpointedExperiment(BaseExperiment):
-    """
-    CheckpointedExperiment is an Experiment which can be stopped and restarted.
-    Step is called multiple times, after it returns the current experiment is serialized allowing the experiment to
-    restart seamlessly since to step it will not look any different whether python has shut down in between successive calls.
-    Smallab will handle serialization and deserialization of this object.
-    This will fail if objects attached to the experiment are not pickleable.
-
-    The lifecycle of this object is
-
-    {} is called internally by smallab, []* is called multiple times
-    {.set_logging_folder() -> .get_logging_folder() -> .set_logger()} -> .initialize() -> [.step()]*
-    """
-
-    @abc.abstractmethod
-    def initialize(self, specification: Specification):
-        pass
-
-    @abc.abstractmethod
-    def step(self) -> typing.Optional[typing.Dict]:
-        """
-        This method is to do work between checkpoints. 
-        Intermediate results should be saved to self
-        :return: None to indicate step should be called again, a dictionary of results when experiment has finished
         """
         pass

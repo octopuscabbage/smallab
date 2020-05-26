@@ -21,7 +21,8 @@ class MainRunner(AbstractRunner):
         completed_specifications = []
         failed_specifications = []
         exceptions = []
-        for specification in tqdm(specifications_to_run, file=TqdmToLogger(logging.getLogger("smallab.main_process_runner")),
+        for specification in tqdm(specifications_to_run,
+                                  file=TqdmToLogger(logging.getLogger("smallab.main_process_runner")),
                                   desc="Experiments", disable=not self.show_progress):
             exception_thrown = run_and_save_fn(specification)
 

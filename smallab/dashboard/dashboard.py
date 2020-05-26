@@ -10,7 +10,7 @@ from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, Progr
                                                 StartExperimentEvent,
                                                 RegisterEvent, FailedEvent)
 
-#This is a globally accessible queue which stores the events for the dashboard
+# This is a globally accessible queue which stores the events for the dashboard
 eventQueue = mp.Queue(maxsize=200)
 
 
@@ -20,6 +20,7 @@ class TimeEstimator():
     It uses this and the number of remaining experiments and iterations to compute the median and lower and upper quartile
     time to complete the entire batch
     """
+
     def __init__(self):
         self.last_update_time = dict()
         self.start_time = dict()
@@ -31,9 +32,9 @@ class TimeEstimator():
         self.start_time[specification] = time.time()
         self.last_update_time[specification] = time.time()
 
-    def record_iteration(self, specification,progress):
+    def record_iteration(self, specification, progress):
         if specification not in self.last_progress:
-            #TODO this will likely be wrong when resuming, it assumes the progress started at 0
+            # TODO this will likely be wrong when resuming, it assumes the progress started at 0
             progress_amount = progress
             self.last_progress[specification] = progress
         else:
@@ -50,7 +51,7 @@ class TimeEstimator():
         self.time_per_completion.append(time_diff)
         self.last_update_time[specification] = current_time
 
-    def compute_time_stats(self, specification_progress, active,registered):
+    def compute_time_stats(self, specification_progress, active, registered):
         # Calculate this differently it should be remaining_progress + active_not_in_progress
         # Dictionary is empty, use number active and completion time to estimate
         # The math here is a little wonky since idk if median and quartiles work with iterated expectation
@@ -60,8 +61,9 @@ class TimeEstimator():
         higher_quartile_complete_all = 0
         if self.time_per_completion:
             times_to_complete = np.array(self.time_per_completion)
-            #this finds the number experiments with no progress (so they are not double counted when counting iterations remaining)
-            remaining_amount_with_no_progress = len(registered) + len(list(filter(lambda x: not x in specification_progress,active)))
+            # this finds the number experiments with no progress (so they are not double counted when counting iterations remaining)
+            remaining_amount_with_no_progress = len(registered) + len(
+                list(filter(lambda x: not x in specification_progress, active)))
 
             average_seconds_to_complete = np.median(times_to_complete)
             expected_seconds_to_complete_all = average_seconds_to_complete * remaining_amount_with_no_progress
@@ -77,20 +79,21 @@ class TimeEstimator():
             if not self.time_per_completion:
                 remaining_amount_with_no_progress = len(registered) + len(
                     list(filter(lambda x: not x in specification_progress, active)))
-                average_max = np.mean([max_num for current_progress,max_num in specification_progress.values()])
+                average_max = np.mean([max_num for current_progress, max_num in specification_progress.values()])
                 remaining_iterations += average_max * remaining_amount_with_no_progress
 
             expected_seconds_to_complete_all += np.median(times_per_iteration) * remaining_iterations
             lower_quartile_complete_all += np.quantile(times_per_iteration,
-                                                      .25) * remaining_iterations
+                                                       .25) * remaining_iterations
             higher_quartile_complete_all += np.quantile(times_per_iteration,
-                                                       .75) * remaining_iterations
+                                                        .75) * remaining_iterations
 
-        #Divide by active number since that's the amount of processes running
+        # Divide by active number since that's the amount of processes running
         if active:
-            return expected_seconds_to_complete_all / len(active), lower_quartile_complete_all / len(active), higher_quartile_complete_all / len(active)
+            return expected_seconds_to_complete_all / len(active), lower_quartile_complete_all / len(
+                active), higher_quartile_complete_all / len(active)
         else:
-            return 0,0,0
+            return 0, 0, 0
 
 
 intervals = (
@@ -116,18 +119,19 @@ def display_time(seconds, granularity=2):
 
 
 def draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered, specification_progress,
-                       timeestimator,failed):
+                       timeestimator, failed):
     stdscr.addstr(0, 0, "Smallab Running: {name}".format(name=experiment_name))
     row += 1
     stdscr.addstr(row, 0, "-" * width)
     row += 1
     completed_failed_string = "Completed {num_complete} / {num_total}".format(num_complete=len(complete),
-                                                                          num_total=len(complete) + len(active) + len(
-                                                                              registered))
+                                                                              num_total=len(complete) + len(
+                                                                                  active) + len(
+                                                                                  registered))
     if failed:
         completed_failed_string += " - Failed: {num_failed}".format(num_failed=len(failed))
-    stdscr.addstr(row, 0,completed_failed_string)
-    t = timeestimator.compute_time_stats(specification_progress, active,registered)
+    stdscr.addstr(row, 0, completed_failed_string)
+    t = timeestimator.compute_time_stats(specification_progress, active, registered)
     if t is not None:
         expected, lower, higher = t
         completion_stats_string = "Completion - Expected: {expectedstr} - Upper: {upperstr} - Lower: {lowerstr}".format(
@@ -139,17 +143,18 @@ def draw_header_widget(row, stdscr, experiment_name, width, complete, active, re
     return row
 
 
-def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed,specification_id_to_specification,specification_readout_index):
+def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height, failed,
+                               specification_id_to_specification, specification_readout_index):
     start_row = row
     # Decide to draw in single or double column
     second_column_begins = math.floor(width / 2)
     max_height = math.floor(height / 2)
     use_double_column_layout = width >= 40 and len(active) + len(registered) > max_height - row
     on_second_column = False
-    max_specification_length = max(map(len,active + registered+ failed)) + 1
-    for i, active_specification in enumerate(active + registered+ failed):
+    max_specification_length = max(map(len, active + registered + failed)) + 1
+    for i, active_specification in enumerate(active + registered + failed):
         if use_double_column_layout and on_second_column:
-            stdscr.addstr(row, second_column_begins,active_specification)
+            stdscr.addstr(row, second_column_begins, active_specification)
             specification_readout_start_index = second_column_begins + max_specification_length
         else:
             stdscr.addstr(row, 0, active_specification)
@@ -178,27 +183,29 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
         if use_double_column_layout and not on_second_column:
             status_string += "||"
             stdscr.addstr(row, second_column_begins - len(status_string), status_string)
-            specification_readout_end_index =second_column_begins - len(status_string)
+            specification_readout_end_index = second_column_begins - len(status_string)
         else:
             stdscr.addstr(row, width - len(status_string), status_string)
             specification_readout_end_index = width - len(status_string)
 
         specification = specification_id_to_specification[active_specification]
         specification_string_start_index = specification_readout_index % len(specification)
-        max_allowed_length = specification_readout_end_index-specification_readout_start_index-1
+        max_allowed_length = specification_readout_end_index - specification_readout_start_index - 1
         if len(specification) <= max_allowed_length:
             stdscr.addstr(row, specification_readout_start_index,
                           specification)
         else:
-            overflow = specification_string_start_index+max_allowed_length - len(specification) - 1
+            overflow = specification_string_start_index + max_allowed_length - len(specification) - 1
             if overflow > 0:
                 stdscr.addstr(row, specification_readout_start_index,
                               specification[
-                              specification_string_start_index:specification_string_start_index + max_allowed_length] + " "+ specification[:overflow])
+                              specification_string_start_index:specification_string_start_index + max_allowed_length] + " " + specification[
+                                                                                                                              :overflow])
 
             else:
                 stdscr.addstr(row, specification_readout_start_index,
-                              specification[specification_string_start_index:specification_string_start_index+max_allowed_length])
+                              specification[
+                              specification_string_start_index:specification_string_start_index + max_allowed_length])
         row += 1
         if row >= max_height:
             if use_double_column_layout and not on_second_column:
@@ -221,7 +228,10 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
     for log in log_spool[-remaining_rows + 1:]:
         message = log[:width]
         if not message.isspace():
-            stdscr.addstr(row, 0, message)
+            try:
+                stdscr.addstr(row, 0, message)
+            except:
+                pass
             row += 1
     return row
 
@@ -257,7 +267,7 @@ def run(stdscr):
                     timeestimator.record_completion(event.specification_id)
                 elif isinstance(event, ProgressEvent):
                     specification_progress[event.specification_id] = (event.progress, event.max)
-                    timeestimator.record_iteration(event.specification_id,event.progress)
+                    timeestimator.record_iteration(event.specification_id, event.progress)
                 elif isinstance(event, LogEvent):
                     if not event.message.isspace():
                         log_spool.append(event.message)
@@ -266,7 +276,7 @@ def run(stdscr):
                 elif isinstance(event, RegisterEvent):
                     registered.append(event.specification_id)
                     specification_ids_to_specification[event.specification_id] = str(dict(event.specification))
-                elif isinstance(event,FailedEvent):
+                elif isinstance(event, FailedEvent):
                     active.remove(event.specification_id)
                     failed.append(event.specification_id)
                 else:
@@ -277,14 +287,14 @@ def run(stdscr):
             height, width = stdscr.getmaxyx()
             row = 0
             row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
-                                     specification_progress, timeestimator,failed)
-            row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,failed,specification_ids_to_specification,specification_readout_index)
+                                     specification_progress, timeestimator, failed)
+            row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,
+                                             failed, specification_ids_to_specification, specification_readout_index)
             row = draw_log_widget(row, stdscr, width, height, log_spool)
             stdscr.refresh()
             time.sleep(0.1)
         except Exception as e:
-            logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e),exc_info=True)
-
+            logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
 
 
 def start_dashboard():
