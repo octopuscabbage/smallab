@@ -39,3 +39,5 @@ class OverlappingOutputCheckpointedExperimentHandler(BaseHandler):
                 yield {'specification': result.specification, 'result': result.return_value}
             else:
                 self.checkpointed_experiment_handler.publish_progress(specification, result)
+        #this is done to have the runner know that the entire experiment completed succesfully
+        yield {"specification":specification, 'result': []}

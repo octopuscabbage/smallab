@@ -43,7 +43,12 @@ class TimeEstimator():
         current_time = time.time()
         time_diff = current_time - self.last_update_time[specification]
         self.last_update_time[specification] = current_time
-        self.time_per_iterations.append(time_diff / progress_amount)
+        if progress_amount != 0:
+            unit_time_diff = time_diff / progress_amount
+        else:
+            unit_time_diff = time_diff
+
+        self.time_per_iterations.append(unit_time_diff)
 
     def record_completion(self, specification):
         current_time = time.time()
@@ -151,7 +156,10 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
     max_height = math.floor(height / 2)
     use_double_column_layout = width >= 40 and len(active) + len(registered) > max_height - row
     on_second_column = False
-    max_specification_length = max(map(len, active + registered + failed)) + 1
+    try:
+        max_specification_length = max(map(len, active + registered + failed)) + 1
+    except ValueError:
+        max_specification_length = 0
     for i, active_specification in enumerate(active + registered + failed):
         if use_double_column_layout and on_second_column:
             stdscr.addstr(row, second_column_begins, active_specification)

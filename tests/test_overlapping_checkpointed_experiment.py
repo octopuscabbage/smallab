@@ -50,6 +50,10 @@ class SimpleExperiment(OverlappingOutputCheckpointedExperiment):
             return (self.i, self.num_calls)
 
 
+class SimpleFailExperiment(SimpleExperiment):
+    def step(self):
+        raise Exception()
+
 class TestOverlappingCheckpointedExperiment(unittest.TestCase):
     def tearDown(self) -> None:
         try:
@@ -70,11 +74,30 @@ class TestOverlappingCheckpointedExperiment(unittest.TestCase):
         output_generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [10, 20, 30]}
         output_specifications = SpecificationGenerator().generate(output_generation_specification)
 
-        name = "overlapping_checkpointed_run"
+        name = "test"
         # This time we will run them all in parallel
         runner = ExperimentRunner()
         runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(),
                    use_dashboard=False, propagate_exceptions=True)
         for result in experiment_iterator(name):
-            output_specifications.remove(result["specification"])
+            if result["result"] != []:
+                output_specifications.remove(result["specification"])
         self.assertEqual([],output_specifications)
+    def test_save_correctly_final_output(self):
+        # Same specification as before
+        generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [[10, 20, 30]]}
+        specifications = SpecificationGenerator().generate(generation_specification)
+
+        output_generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [10, 20, 30]}
+        output_specifications = SpecificationGenerator().generate(output_generation_specification)
+
+        name = "test"
+        # This time we will run them all in parallel
+        runner = ExperimentRunner()
+        runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(),
+                   use_dashboard=False, propagate_exceptions=True)
+        for result in experiment_iterator(name):
+            if result["result"] != []:
+                output_specifications.remove(result["specification"])
+        self.assertEqual([], output_specifications)
+        runner.run(name,specifications,SimpleFailExperiment())
