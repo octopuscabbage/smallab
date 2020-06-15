@@ -24,7 +24,7 @@ class JoblibRunner(AbstractRunner):
         exceptions = []
 
         exceptions_thrown = Parallel(n_jobs=self.num_parallel, prefer="threads")(
-                delayed(lambda specification: parallel_f(specification))(specification) for
+                delayed(lambda specification: run_and_save_fn(specification))(specification) for
                 specification in specifications_to_run)
 
         # Look through output to create batch failures and sucesses
