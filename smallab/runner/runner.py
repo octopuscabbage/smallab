@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import multiprocessing as mp
 import typing
 
 import dill
@@ -87,7 +86,7 @@ class ExperimentRunner(object):
 
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: ExperimentBase,
             continue_from_last_run=True, propagate_exceptions=False,
-            force_pickle=False, specification_runner: AbstractRunner = None, use_dashboard=True) -> typing.NoReturn:
+            force_pickle=False, specification_runner: AbstractRunner = None, use_dashboard=True,context_type="fork",multiprocessing_lib=None) -> typing.NoReturn:
         """
         The method called to run an experiment
         :param propagate_exceptions: If True, exceptions won't be caught and logged as failed experiments but will cause the program to crash (like normal), useful for debugging exeperiments
@@ -101,11 +100,18 @@ class ExperimentRunner(object):
         :param use_dashboard: If true, use the terminal monitoring dashboard. If false, just stream logs to stdout.
         :return: No return
         """
+        if multiprocessing_lib is None:
+             import multiprocessing as mp
+        else:
+            mp = multiprocessing_lib
+        ctx = mp.get_context(context_type)
         if specification_runner is None:
             specification_runner = JoblibRunner(None)
         dashboard_process = None
         try:
-            put_in_event_queue(StartExperimentEvent(name))
+            manager = ctx.Manager()
+            eventQueue = manager.Queue(maxsize=200)
+            put_in_event_queue(eventQueue,StartExperimentEvent(name))
             # Set up root smallab logger
             folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
             file_loc = os.path.join(folder_loc, "main.log")
@@ -122,12 +128,12 @@ class ExperimentRunner(object):
                 sh.setFormatter(formatter)
                 logger.addHandler(sh)
             else:
-                fq = LogToEventQueue()
+                fq = LogToEventQueue(eventQueue)
                 sh = logging.StreamHandler(fq)
                 sh.setFormatter(formatter)
                 # Add to root so all logging appears in dashboard not just smallab.
                 logging.getLogger().addHandler(sh)
-                dashboard_process = mp.Process(target=start_dashboard)
+                dashboard_process = ctx.Process(target=start_dashboard,args=(eventQueue,))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
 
@@ -143,11 +149,11 @@ class ExperimentRunner(object):
                 callback.set_experiment_name(name)
 
             for specification in need_to_run_specifications:
-                put_in_event_queue(RegisterEvent(specification_hash(specification), specification))
+                put_in_event_queue(eventQueue,RegisterEvent(specification_hash(specification), specification))
             specification_runner.run(need_to_run_specifications,
                                      lambda specification: run_and_save(name, experiment, specification,
                                                                         propagate_exceptions, self.callbacks,
-                                                                        self.force_pickle))
+                                                                        self.force_pickle,eventQueue))
             self._write_to_completed_json(name, specification_runner.get_completed(),
                                           specification_runner.get_failed_specifications())
 

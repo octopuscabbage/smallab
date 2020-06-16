@@ -47,17 +47,18 @@ class SimpleExperiment(CheckpointedExperiment):
             return (self.i, self.num_calls)
 
 
-#Same specification as before
-generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [1, 2, 3]}
-specifications = SpecificationGenerator().generate(generation_specification)
+if __name__ == "__main__":
+    #Same specification as before
+    generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [1, 2, 3]}
+    specifications = SpecificationGenerator().generate(generation_specification)
 
-name = "checkpointed_run"
-#This time we will run them all in parallel
-runner = ExperimentRunner()
-runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())
+    name = "checkpointed_run"
+    #This time we will run them all in parallel
+    runner = ExperimentRunner()
+    runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())
 
-#Some of our experiments may have failed, let's call run again to hopefully solve that
-runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())
+    #Some of our experiments may have failed, let's call run again to hopefully solve that
+    runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())
 
-#Cleanup example
-delete_experiments_folder(name)
+    #Cleanup example
+    delete_experiments_folder(name)

@@ -11,7 +11,6 @@ from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, Progr
                                                 RegisterEvent, FailedEvent)
 
 # This is a globally accessible queue which stores the events for the dashboard
-eventQueue = mp.Queue(maxsize=200)
 
 
 class TimeEstimator():
@@ -244,7 +243,7 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
     return row
 
 
-def run(stdscr):
+def run(stdscr,eventQueue):
     timeestimator = TimeEstimator()
     i = 0
     log_spool = []
@@ -305,5 +304,5 @@ def run(stdscr):
             logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
 
 
-def start_dashboard():
-    curses.wrapper(run)
+def start_dashboard(eventQueue):
+    curses.wrapper(run,eventQueue)

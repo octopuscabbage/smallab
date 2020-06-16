@@ -8,8 +8,8 @@ from smallab.smallab_types import Specification
 
 
 class OverlappingOutputCheckpointedExperimentHandler(BaseHandler):
-    def __init__(self):
-        self.checkpointed_experiment_handler = CheckpointedExperimentHandler()
+    def __init__(self,eventQueue):
+        self.checkpointed_experiment_handler = CheckpointedExperimentHandler(eventQueue)
 
     def run(self, experiment: OverlappingOutputCheckpointedExperiment, name: typing.AnyStr,
             specification: Specification):

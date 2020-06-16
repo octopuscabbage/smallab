@@ -22,9 +22,14 @@ class JoblibRunner(AbstractRunner):
         completed_specifications = []
         failed_specifications = []
         exceptions = []
+        with tqdm(total=len(specifications_to_run), file=TqdmToLogger(logging.getLogger("smallab.joblib_runner")),
+                  desc="Running Specifications") as pbar:
+            def parallel_f(specification):
+                run_and_save_fn(specification)
+                pbar.update(1)
 
-        exceptions_thrown = Parallel(n_jobs=self.num_parallel, prefer="threads")(
-                delayed(lambda specification: run_and_save_fn(specification))(specification) for
+            exceptions_thrown = Parallel(n_jobs=self.num_parallel, prefer="threads")(
+                delayed(lambda specification: parallel_f(specification))(specification) for
                 specification in specifications_to_run)
 
         # Look through output to create batch failures and sucesses

@@ -17,7 +17,6 @@ class SimpleExperiment(Experiment):
             random.random()
         return {"number": random.random()}
 
-
 # In the generation specification keys that have lists as their values will be cross producted with other list valued keys to create many specifications
 # in this instance there will be 8 * 3 = 24 specifications
 generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [1, 2, 3]}
