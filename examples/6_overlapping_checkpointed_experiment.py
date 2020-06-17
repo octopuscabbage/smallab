@@ -46,20 +46,20 @@ class SimpleExperiment(OverlappingOutputCheckpointedExperiment):
             # This experiment isn't done, return the progress as a tuple to update the dashboard
             return (self.i, self.num_calls)
 
-if __name__=="__main__":
-    # Same specification as before
-    generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [[10, 20, 30]]}
-    specifications = SpecificationGenerator().generate(generation_specification)
 
-    name = "overlapping_checkpointed_run"
-    # This time we will run them all in parallel
-    runner = ExperimentRunner()
-    runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=False,
-               propagate_exceptions=True)
+# Same specification as before
+generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [[10, 20, 30]]}
+specifications = SpecificationGenerator().generate(generation_specification)
 
-    # Some of our experiments may have failed, let's call run again to hopefully solve that
-    runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=False,
-               propagate_exceptions=True)
+name = "overlapping_checkpointed_run"
+# This time we will run them all in parallel
+runner = ExperimentRunner()
+runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=False,
+           propagate_exceptions=True)
 
-    # Cleanup example
-    delete_experiments_folder(name)
+# Some of our experiments may have failed, let's call run again to hopefully solve that
+runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=False,
+           propagate_exceptions=True)
+
+# Cleanup example
+delete_experiments_folder(name)

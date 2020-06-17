@@ -20,12 +20,11 @@ class CheckpointedExperimentHandler(BaseHandler):
     An internal handler to handle running checkpointed experiments.
     """
 
-    def __init__(self,eventQueue, rolled_backups=3):
+    def __init__(self, rolled_backups=3):
         """
 
         :param rolled_backups: Controls how many backups are kept. Once this limit is reached the oldest is deleted.
         """
-        self.eventQueue = eventQueue
         self.rolled_backups = rolled_backups
 
     def run(self, experiment: CheckpointedExperiment, name: typing.AnyStr, specification: Specification):
@@ -45,7 +44,7 @@ class CheckpointedExperimentHandler(BaseHandler):
 
     def publish_progress(self, specification, result):
         if isinstance(result, tuple):
-            put_in_event_queue(self.eventQueue,ProgressEvent(specification_hash(specification), result[0], result[1]))
+            put_in_event_queue(ProgressEvent(specification_hash(specification), result[0], result[1]))
 
     def load_most_recent(self, name, specification):
         specification_id = specification_hash(specification)

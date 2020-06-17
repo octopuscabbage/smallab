@@ -9,11 +9,11 @@ from smallab.experiment_types.overlapping_output_experiment import OverlappingOu
 from smallab.smallab_types import Specification
 
 
-def run_with_correct_handler(experiment: ExperimentBase, name: typing.AnyStr, specification: Specification,eventQueue):
+def run_with_correct_handler(experiment: ExperimentBase, name: typing.AnyStr, specification: Specification):
     if isinstance(experiment, CheckpointedExperiment):
-        return CheckpointedExperimentHandler(eventQueue).run(experiment, name, specification)
+        return CheckpointedExperimentHandler().run(experiment, name, specification)
     elif isinstance(experiment, OverlappingOutputCheckpointedExperiment):
-        return OverlappingOutputCheckpointedExperimentHandler(eventQueue).run(experiment, name, specification)
+        return OverlappingOutputCheckpointedExperimentHandler().run(experiment, name, specification)
     elif isinstance(experiment, Experiment):
         return experiment.main(specification)
     else:
