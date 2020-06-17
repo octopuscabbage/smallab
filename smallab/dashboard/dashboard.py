@@ -278,7 +278,7 @@ def run(stdscr):
                     timeestimator.record_iteration(event.specification_id, event.progress)
                 elif isinstance(event, LogEvent):
                     if not event.message.isspace():
-                        log_spool.append(event.message)
+                        log_spool.extend(event.message.split("\n"))
                 elif isinstance(event, StartExperimentEvent):
                     experiment_name = event.name
                 elif isinstance(event, RegisterEvent):
