@@ -7,7 +7,7 @@ import types
 from copy import deepcopy
 
 from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, FailedEvent
-from smallab.dashboard.utils import put_in_event_queue
+from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
 from smallab.experiment_types.handlers.registry import run_with_correct_handler
 from smallab.file_locations import (get_json_file_location, get_save_file_directory, get_pkl_file_location,
                                     get_specification_file_location, get_log_file)
@@ -51,7 +51,7 @@ def save_run(name, experiment, specification, result, force_pickle):
                 pass
 
 
-def run_and_save(name, experiment, specification, propagate_exceptions, callbacks, force_pickle):
+def run_and_save(name, experiment, specification, propagate_exceptions, callbacks, force_pickle,eventQueue):
     experiment = deepcopy(experiment)
     specification_id = specification_hash(specification)
     logger_name = "smallab.{specification_id}".format(specification_id=specification_id)
@@ -61,12 +61,17 @@ def run_and_save(name, experiment, specification, propagate_exceptions, callback
     formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+    fq = LogToEventQueue(eventQueue)
+    sh = logging.StreamHandler(fq)
+    sh.setFormatter(formatter)
+    logger.addHandler(sh)
+    #TODO need to attach eventqueue logger handler here and not at base logger
 
     experiment.set_logger_name(logger_name)
-    put_in_event_queue(BeginEvent(specification_id))
+    put_in_event_queue(eventQueue,BeginEvent(specification_id))
 
     def _interior_fn():
-        result = run_with_correct_handler(experiment, name, specification)
+        result = run_with_correct_handler(experiment, name, specification,eventQueue)
         if isinstance(result, types.GeneratorType):
             for cur_result in result:
                 save_run(name, experiment, cur_result["specification"], cur_result["result"], force_pickle)
@@ -80,14 +85,15 @@ def run_and_save(name, experiment, specification, propagate_exceptions, callback
         try:
             _interior_fn()
 
-            put_in_event_queue(CompleteEvent(specification_id))
+            put_in_event_queue(eventQueue,CompleteEvent(specification_id))
         except Exception as e:
             logger.error("Specification Failure", exc_info=True)
-            put_in_event_queue(FailedEvent(specification_id))
+            put_in_event_queue(eventQueue,FailedEvent(specification_id))
             for callback in callbacks:
                 callback.on_specification_failure(e, specification)
             return e
     else:
         _interior_fn()
-        put_in_event_queue(CompleteEvent(specification_id))
+        put_in_event_queue(eventQueue,CompleteEvent(specification_id))
         return None
+

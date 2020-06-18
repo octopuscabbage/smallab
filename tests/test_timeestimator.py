@@ -3,7 +3,7 @@ import typing
 import unittest
 
 from smallab.dashboard.dashboard import TimeEstimator
-from smallab.experiment import Experiment
+from smallab.experiment_types.experiment import Experiment
 from smallab.smallab_types import Specification
 
 #These tests are kind of flimsy since they rely on time.sleep

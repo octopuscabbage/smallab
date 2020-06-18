@@ -45,3 +45,7 @@ class AbstractRunner(abc.ABC):
 
     def get_exceptions(self):
         return self.exceptions
+    def get_multiprocessing_context(self):
+        return self.ctx
+    def set_multiprocessing_context(self,ctx):
+        self.ctx = ctx
