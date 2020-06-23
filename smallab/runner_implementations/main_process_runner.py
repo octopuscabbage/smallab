@@ -3,12 +3,12 @@ import typing
 
 from tqdm import tqdm
 
-from smallab.runner_implementations.abstract_runner import AbstractRunner
+from smallab.runner_implementations.abstract_runner import SimpleAbstractRunner
 from smallab.smallab_types import Specification
 from smallab.utilities.tqdm_to_logger import TqdmToLogger
 
 
-class MainRunner(AbstractRunner):
+class MainRunner(SimpleAbstractRunner):
     """
     The simplest runner which runs each specification in serial on the main process and thread.
     """

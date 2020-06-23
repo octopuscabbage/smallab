@@ -4,7 +4,7 @@ import typing
 
 import dill
 
-from smallab.runner_implementations.abstract_runner import AbstractRunner
+from smallab.runner_implementations.abstract_runner import SimpleAbstractRunner
 from smallab.smallab_types import Specification
 from smallab.specification_hashing import specification_hash
 
@@ -19,25 +19,19 @@ def apply_async(pool, fun, args):
     return pool.apply_async(run_dill_encoded, (payload,))
 
 
-class MultiprocessingRunner(AbstractRunner):
+class MultiprocessingRunner(SimpleAbstractRunner):
     """
     A runner which uses a multiprocessing pool to manage specification running
     """
 
-    def __init__(self, mp_override=None, num_parallel=None):
+    def __init__(self, num_parallel=None):
         """
         :param mp_override: provide multiprocessing library that should be used. This is done because pytorch has a funky multiprocessing library that could be pased in here
         """
-        if mp_override is not None:
-            self.mp = mp_override
-        else:
-            import multiprocessing
-            self.mp = multiprocessing
         self.num_parallel = num_parallel
 
     def run(self, specifications_to_run: typing.List[Specification],
             run_and_save_fn: typing.Callable[[Specification], typing.Union[None, Exception]]):
-        #TODO pass context here
         pool = self.get_multiprocessing_context().Pool(self.num_parallel)
 
         # listener.start()

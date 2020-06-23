@@ -9,11 +9,11 @@ import os
 from smallab.callbacks import CallbackManager
 from smallab.dashboard.dashboard import start_dashboard
 from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent
-from smallab.dashboard.utils import LogToEventQueue, put_in_event_queue
+from smallab.dashboard.utils import put_in_event_queue
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.file_locations import (get_save_directory, get_experiment_save_directory)
 from smallab.runner.runner_methods import run_and_save
-from smallab.runner_implementations.abstract_runner import AbstractRunner
+from smallab.runner_implementations.abstract_runner import SimpleAbstractRunner, ComplexAbstractRunner
 from smallab.runner_implementations.joblib_runner import JoblibRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.smallab_types import Specification
@@ -87,7 +87,8 @@ class ExperimentRunner(object):
 
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: ExperimentBase,
             continue_from_last_run=True, propagate_exceptions=False,
-            force_pickle=False, specification_runner: AbstractRunner = MultiprocessingRunner(), use_dashboard=True,context_type="fork",multiprocessing_lib=None) -> typing.NoReturn:
+            force_pickle=False, specification_runner: SimpleAbstractRunner = MultiprocessingRunner(),
+            use_dashboard=True, context_type="fork", multiprocessing_lib=None) -> typing.NoReturn:
 
         """
         The method called to run an experiment
@@ -103,7 +104,7 @@ class ExperimentRunner(object):
         :return: No return
         """
         if multiprocessing_lib is None:
-             import multiprocessing as mp
+            import multiprocessing as mp
         else:
             mp = multiprocessing_lib
         ctx = mp.get_context(context_type)
@@ -114,7 +115,7 @@ class ExperimentRunner(object):
         try:
             manager = ctx.Manager()
             eventQueue = manager.Queue(maxsize=2000)
-            put_in_event_queue(eventQueue,StartExperimentEvent(name))
+            put_in_event_queue(eventQueue, StartExperimentEvent(name))
             # Set up root smallab logger
             folder_loc = os.path.join("experiment_runs", name, "logs", str(datetime.datetime.now()))
             file_loc = os.path.join(folder_loc, "main.log")
@@ -123,7 +124,7 @@ class ExperimentRunner(object):
             logger = logging.getLogger("smallab")
             logger.setLevel(logging.DEBUG)
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            #Can't do this with non-fork multiprocessing
+            # Can't do this with non-fork multiprocessing
             if context_type == "fork":
                 fh = logging.FileHandler(file_loc)
                 fh.setFormatter(formatter)
@@ -133,12 +134,12 @@ class ExperimentRunner(object):
                 sh.setFormatter(formatter)
                 logger.addHandler(sh)
             else:
-                #fq = LogToEventQueue(eventQueue)
-                #sh = logging.StreamHandler(fq)
-                #sh.setFormatter(formatter)
+                # fq = LogToEventQueue(eventQueue)
+                # sh = logging.StreamHandler(fq)
+                # sh.setFormatter(formatter)
                 # Add to root so all logging appears in dashboard not just smallab.
-                #logging.getLogger().addHandler(sh)
-                dashboard_process = ctx.Process(target=start_dashboard,args=(eventQueue,))
+                # logging.getLogger().addHandler(sh)
+                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue,))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
 
@@ -154,14 +155,18 @@ class ExperimentRunner(object):
                 callback.set_experiment_name(name)
 
             for specification in need_to_run_specifications:
-                put_in_event_queue(eventQueue,RegisterEvent(specification_hash(specification), specification))
-            specification_runner.run(need_to_run_specifications,
-                                     lambda specification: run_and_save(name, experiment, specification,
-                                                                        propagate_exceptions, self.callbacks,
-                                                                        self.force_pickle,eventQueue))
+                put_in_event_queue(eventQueue, RegisterEvent(specification_hash(specification), specification))
+            if isinstance(specification_runner, SimpleAbstractRunner):
+                specification_runner.run(need_to_run_specifications,
+                                         lambda specification: run_and_save(name, experiment, specification,
+                                                                            propagate_exceptions, self.callbacks,
+                                                                            self.force_pickle, eventQueue))
+            elif isinstance(specification_runner, ComplexAbstractRunner):
+                specification_runner.run(need_to_run_specifications, name, experiment, propagate_exceptions,
+                                         self.callbacks, self.force_pickle, eventQueue)
+
             self._write_to_completed_json(name, specification_runner.get_completed(),
                                           specification_runner.get_failed_specifications())
-
 
             # Call batch complete functions
             if specification_runner.get_exceptions() != []:
