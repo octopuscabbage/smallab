@@ -69,3 +69,4 @@ class TestMpContextSwitch(unittest.TestCase):
                 output_specifications.remove(result["specification"])
         self.assertEqual([], output_specifications)
         runner.run(name,specifications,SimpleFailExperiment())
+
