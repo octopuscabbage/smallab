@@ -4,12 +4,12 @@ import typing
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from smallab.runner_implementations.abstract_runner import AbstractRunner
+from smallab.runner_implementations.abstract_runner import SimpleAbstractRunner
 from smallab.smallab_types import Specification
 from smallab.utilities.tqdm_to_logger import TqdmToLogger
 
 
-class JoblibRunner(AbstractRunner):
+class JoblibRunner(SimpleAbstractRunner):
     """
     Runs the Specifications in parallel on threads using joblib
     """
