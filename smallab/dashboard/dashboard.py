@@ -173,7 +173,7 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
 
         if active_specification in specification_progress:
             progress, max_amount = specification_progress[active_specification]
-            status_string = "{progress}/{max_amount} : ".format(progress=round(progress,2), max_amount=round(max_amount,2))h
+            status_string = "{progress}/{max_amount} : ".format(progress=round(progress,2), max_amount=round(max_amount,2))
             amount_complete = progress / max_amount
             bars_complete = math.floor(amount_complete * bar_width)
             bars_not_complete = bar_width - bars_complete
