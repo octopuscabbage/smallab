@@ -15,7 +15,7 @@ from smallab.specification_hashing import specification_hash
 
 
 def save_run(name, experiment, specification, result, force_pickle):
-    os.makedirs(get_save_file_directory(name, specification))
+    os.makedirs(get_save_file_directory(name, specification),exist_ok=True)
     output_dictionary = {"specification": specification, "result": result}
     json_serialize_was_successful = False
     # Try json serialization
