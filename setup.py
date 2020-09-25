@@ -12,7 +12,8 @@ required = [
     'numpy',
     'tqdm',
     'humanhash3',
-    'python-dateutil'
+    'python-dateutil',
+    'dill'
 ]
 
 setup(
