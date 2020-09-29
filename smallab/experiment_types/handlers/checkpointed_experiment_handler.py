@@ -90,7 +90,7 @@ class CheckpointedExperimentHandler(BaseHandler):
         return checkpoints
 
     def _save_checkpoint(self, experiment, name, specification):
-        assert isinstance(experiment,HasCheckpoint)
+        #assert isinstance(experiment,HasCheckpoint)
         experiment.set_steps_since_checkpoint(experiment.get_steps_since_checkpiont() + 1)
         if experiment.get_steps_since_checkpiont() >= experiment.steps_before_checkpoint():
             experiment.set_steps_since_checkpoint(0)
