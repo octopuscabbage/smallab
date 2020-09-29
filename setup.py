@@ -18,7 +18,7 @@ required = [
 
 setup(
     name="smallab",
-    version="1.7.3",
+    version="1.8.0",
     url='https://github.com/octopuscabbage/smallab',
     packages=find_packages(),
     install_requires=required,
