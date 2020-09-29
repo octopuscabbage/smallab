@@ -9,6 +9,7 @@ from dateutil.parser import parse
 from smallab.dashboard.dashboard_events import ProgressEvent
 from smallab.dashboard.utils import put_in_event_queue
 from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment, HasCheckpoint
+from smallab.experiment_types.experiment import ExperimentBase
 from smallab.experiment_types.handlers.base_handler import BaseHandler
 from smallab.file_locations import get_partial_save_directory
 from smallab.smallab_types import Specification
@@ -89,8 +90,14 @@ class CheckpointedExperimentHandler(BaseHandler):
             list(map(parse, map(lambda x: x.strip(".pkl"), checkpoints))))
         return checkpoints
 
-    def _save_checkpoint(self, experiment, name, specification):
+    def _save_checkpoint(self, save_data, name, specification):
         #assert isinstance(experiment,HasCheckpoint)
+        if isinstance(save_data, tuple):
+            experiment = save_data[0]
+        else:
+            experiment = save_data
+        assert isinstance(experiment,HasCheckpoint)
+
         experiment.set_steps_since_checkpoint(experiment.get_steps_since_checkpiont() + 1)
         if experiment.get_steps_since_checkpiont() >= experiment.steps_before_checkpoint():
             experiment.set_steps_since_checkpoint(0)
@@ -101,7 +108,7 @@ class CheckpointedExperimentHandler(BaseHandler):
                 os.makedirs(location, exist_ok=True)
                 # TODO make sure a checkpoint with this name doesn't already exist
                 with open(os.path.join(location, checkpoint_name + ".pkl"), "wb") as f:
-                    dill.dump(experiment, f)
+                    dill.dump(save_data, f)
                 logging.getLogger("smallab.{id}.checkpoint".format(id=experiment_hash)).info(
                     "Succesfully checkpointed {chp}".format(chp=checkpoint_name))
                 checkpoints = os.listdir(location)
