@@ -1,18 +1,22 @@
-import typing
-
 import abc
+import typing
 
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.smallab_types import Specification, ExpProgressTuple
 
+
 class HasCheckpoint(abc.ABC):
+    def __init__(self):
+        self.steps_since_checkpoint = 0
+
     def steps_before_checkpoint(self) -> int:
         return 1
-    def set_steps_since_checkpoint(self,steps_since_checkpoint: int) :
+
+    def set_steps_since_checkpoint(self, steps_since_checkpoint: int):
         self.steps_since_checkpoint = steps_since_checkpoint
+
     def get_steps_since_checkpiont(self) -> int:
         return self.steps_since_checkpoint
-
 
 
 class CheckpointedExperiment(ExperimentBase, HasCheckpoint):
