@@ -88,7 +88,7 @@ class ExperimentRunner(object):
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: ExperimentBase,
             continue_from_last_run=True, propagate_exceptions=False,
             force_pickle=False, specification_runner: SimpleAbstractRunner = MultiprocessingRunner(),
-            use_dashboard=True, context_type="fork", multiprocessing_lib=None) -> typing.NoReturn:
+            use_dashboard=True, context_type="fork", multiprocessing_lib=None,save_every_k=None) -> typing.NoReturn:
 
         """
         The method called to run an experiment

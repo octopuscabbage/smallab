@@ -1,12 +1,25 @@
-import typing
-
 import abc
+import typing
 
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.smallab_types import Specification, ExpProgressTuple
 
 
-class CheckpointedExperiment(ExperimentBase):
+class HasCheckpoint(abc.ABC):
+    def __init__(self):
+        self.steps_since_checkpoint = 0
+
+    def steps_before_checkpoint(self) -> int:
+        return 1
+
+    def set_steps_since_checkpoint(self, steps_since_checkpoint: int):
+        self.steps_since_checkpoint = steps_since_checkpoint
+
+    def get_steps_since_checkpiont(self) -> int:
+        return self.steps_since_checkpoint
+
+
+class CheckpointedExperiment(ExperimentBase, HasCheckpoint):
     """
     CheckpointedExperiment is an Experiment which can be stopped and restarted.
     Step is called multiple times, after it returns the current experiment is serialized allowing the experiment to

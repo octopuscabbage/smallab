@@ -2,6 +2,7 @@ import typing
 
 import abc
 
+from smallab.experiment_types.checkpointed_experiment import HasCheckpoint
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.smallab_types import Specification, ExpProgressTuple
 
@@ -24,7 +25,7 @@ class OverlappingOutputCheckpointedExperimentReturnValue():
         self.max_iterations = max_iterations
 
 
-class OverlappingOutputCheckpointedExperiment(ExperimentBase):
+class OverlappingOutputCheckpointedExperiment(ExperimentBase, HasCheckpoint):
     """
     This experiment class handles the case where you have an experiment that you would like multiple overlapping experiments saved
     For example, you want to run your method for 100,200 and 300 iterations.
