@@ -35,5 +35,5 @@ runner = ExperimentRunner()
 runner.run(name,specifications,experiment_instance)
 
 #If I run it again, nothing will happen because smallab knows those experiments succesfully completed
-runner.run(name,specifications,experiment_instance)
+runner.run(name,specifications,experiment_instance,use_dashboard=False)
 delete_experiments_folder(name)

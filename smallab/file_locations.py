@@ -28,8 +28,10 @@ def get_pkl_file_location(name: typing.AnyStr,
     :param specification: The specification of the current run
     :return: The filename to save this run under
     """
-    return os.path.join(get_save_file_directory(name, specification, diff_namer,extended_keys=False), "run.pkl")
+    return os.path.join(get_save_file_directory(name, specification, diff_namer,extended_keys=extended_keys), "run.pkl")
 
+def get_sqlite_file_location(name):
+    return os.path.join(get_experiment_save_directory(name),"db.sqlite")
 
 def get_json_file_location(name, specification, diff_namer,extended_keys=False):
     return os.path.join(get_save_file_directory(name, specification, diff_namer,extended_keys), "run.json")

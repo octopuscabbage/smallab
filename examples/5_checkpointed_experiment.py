@@ -54,7 +54,8 @@ specifications = SpecificationGenerator().generate(generation_specification)
 name = "checkpointed_run"
 #This time we will run them all in parallel
 runner = ExperimentRunner()
-runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())
+#runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())
+runner.run(name, specifications, SimpleExperiment())
 
 #Some of our experiments may have failed, let's call run again to hopefully solve that
 runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())

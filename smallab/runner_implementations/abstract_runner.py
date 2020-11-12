@@ -4,6 +4,7 @@ import abc
 
 from smallab.callbacks import CallbackManager
 from smallab.experiment_types.experiment import ExperimentBase
+from smallab.runner.runner_methods import SerializationMethod
 from smallab.smallab_types import Specification
 
 
@@ -70,5 +71,5 @@ class ComplexAbstractRunner(BaseAbstractRunner):
     def run(self, specifications_to_run: typing.List[Specification], experiment_name: typing.AnyStr,
             experiment: ExperimentBase,
             propagate_exceptions: bool, callbacks: typing.List[CallbackManager],
-            force_pickle: bool, eventQueue, namer):
+            eventQueue, namer,serialization_method:SerializationMethod):
         pass
