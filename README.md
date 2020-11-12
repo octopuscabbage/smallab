@@ -42,7 +42,7 @@ import dill
 
 #What you need to import from smallab
 from smallab.experiment_types.experiment import Experiment
-from smallab.runner import ExperimentRunner
+from smallab.runner.runner import ExperimentRunner
 
 
 #Write a simple experiment
