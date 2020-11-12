@@ -9,7 +9,7 @@ import os
 from smallab.callbacks import CallbackManager
 from smallab.dashboard.dashboard import start_dashboard
 from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent
-from smallab.dashboard.utils import put_in_event_queue
+from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.file_locations import (get_save_directory, get_experiment_save_directory)
 from smallab.runner.runner_methods import run_and_save
@@ -122,6 +122,7 @@ class ExperimentRunner(object):
             if not os.path.exists(folder_loc):
                 os.makedirs(folder_loc)
             logger = logging.getLogger("smallab")
+            logger.propagate = False
             logger.setLevel(logging.DEBUG)
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             # Can't do this with non-fork multiprocessing
@@ -134,11 +135,10 @@ class ExperimentRunner(object):
                 sh.setFormatter(formatter)
                 logger.addHandler(sh)
             else:
-                # fq = LogToEventQueue(eventQueue)
-                # sh = logging.StreamHandler(fq)
-                # sh.setFormatter(formatter)
-                # Add to root so all logging appears in dashboard not just smallab.
-                # logging.getLogger().addHandler(sh)
+                #fq = LogToEventQueue(eventQueue)
+                #sh = logging.StreamHandler(fq)
+                #sh.setFormatter(formatter)
+                #logging.getLogger("smallab").addHandler(sh)
                 dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue,))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
