@@ -4,9 +4,11 @@ import json
 import typing
 
 import copy
+import numpy as np
 
 
 class SpecificationGenerator:
+
     def generate(self, generation_specification: typing.Dict) -> typing.List[collections.OrderedDict]:
         '''
         This class takes a generation specification and outputs a list of specifications based on it.
@@ -49,17 +51,28 @@ class SpecificationGenerator:
             "a": [[1,2,3]]
         }
         '''
+
         generation_specification = collections.OrderedDict(sorted(generation_specification.items()))
         iterators = []
-        for key, value in generation_specification.items():
+
+        for index, key, value in enumerate(sorted(generation_specification.items())):
             if isinstance(value, list):
                 iterators.append(list(map(lambda x: (key, x), value)))
+
+                if value:  # in case the list is empty
+                    if not isinstance(value[0], (bool, int)):
+                        # One-hot encode values if not booleans or ints
+                        xs = [[val] for val in value]
+                        xs = np.array(xs)
+                        encoders.setdefault(index, OneHotEncoder().fit(xs))
+
         specifications = []
         for updates in itertools.product(*iterators):
             cur_j = copy.deepcopy(generation_specification)
             for update_key, update_value in updates:
                 cur_j[update_key] = update_value
             specifications.append(cur_j)
+
         return specifications
 
     def from_json_file(self, fp: typing.AnyStr) -> typing.List[typing.Dict]:

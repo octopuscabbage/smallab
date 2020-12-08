@@ -8,7 +8,7 @@ import os
 
 from smallab.callbacks import CallbackManager
 from smallab.dashboard.dashboard import start_dashboard
-from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent
+from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent, RegistrationCompleteEvent
 from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.file_locations import (get_save_directory, get_experiment_save_directory)
@@ -156,6 +156,8 @@ class ExperimentRunner(object):
 
             for specification in need_to_run_specifications:
                 put_in_event_queue(eventQueue, RegisterEvent(specification_hash(specification), specification))
+            put_in_event_queue(eventQueue, RegistrationCompleteEvent())
+
             if isinstance(specification_runner, SimpleAbstractRunner):
                 specification_runner.run(need_to_run_specifications,
                                          lambda specification: run_and_save(name, experiment, specification,

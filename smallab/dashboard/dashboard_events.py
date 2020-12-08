@@ -31,6 +31,11 @@ class RegisterEvent():
         self.specification = specification
 
 
+class RegistrationCompleteEvent():
+    def __init__(self):
+        pass
+
+
 class FailedEvent():
     def __init__(self, specification_id):
         self.specification_id = specification_id

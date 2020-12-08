@@ -4,16 +4,23 @@ import math
 import multiprocessing as mp
 import time
 
+import scipy.stats as stats
 import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import OneHotEncoder
 
 from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, ProgressEvent, LogEvent,
-                                                StartExperimentEvent,
+                                                StartExperimentEvent, RegistrationCompleteEvent,
                                                 RegisterEvent, FailedEvent)
 
 # This is a globally accessible queue which stores the events for the dashboard
 
+encoders = dict()  # feature name : dict("encoder" : OneHotEncoder, "values" : list of values)
+specification_ids_to_specification = dict()
+keys_with_numeric_vals = []
 
-class TimeEstimator():
+
+class TimeEstimator:
     """
     This is used to record how long it takes for one iteration of an experiment and how long it takes to complete an experiment
     It uses this and the number of remaining experiments and iterations to compute the median and lower and upper quartile
@@ -21,10 +28,13 @@ class TimeEstimator():
     """
 
     def __init__(self):
+        self.cur_calls = 0  # resets every batch_size calls to compute_time_stats
+        self.batch_size = 10
+        self.last_estimate = (0, 0, 0)  # This way we can return the same time estimate every batch_size frames
+        self.iteration_dataset = {}  # Maps specifications to list of iteration times
+        self.completion_dataset = {}  # Maps specifications to list of completion times
         self.last_update_time = dict()
         self.start_time = dict()
-        self.time_per_iterations = []
-        self.time_per_completion = []
         self.last_progress = dict()
 
     def record_start(self, specification):
@@ -39,20 +49,22 @@ class TimeEstimator():
         else:
             progress_amount = progress - self.last_progress[specification]
             self.last_progress[specification] = progress
+
         current_time = time.time()
         time_diff = current_time - self.last_update_time[specification]
+
         self.last_update_time[specification] = current_time
         if progress_amount != 0:
             unit_time_diff = time_diff / progress_amount
         else:
             unit_time_diff = time_diff
 
-        self.time_per_iterations.append(unit_time_diff)
+        self.iteration_dataset.setdefault(specification, []).append(unit_time_diff)
 
     def record_completion(self, specification):
         current_time = time.time()
         time_diff = current_time - self.start_time[specification]
-        self.time_per_completion.append(time_diff)
+        self.completion_dataset.setdefault(specification, []).append(time_diff)
         self.last_update_time[specification] = current_time
 
     def compute_time_stats(self, specification_progress, active, registered):
@@ -60,45 +72,60 @@ class TimeEstimator():
         # Dictionary is empty, use number active and completion time to estimate
         # The math here is a little wonky since idk if median and quartiles work with iterated expectation
 
-        expected_seconds_to_complete_all = 0
-        lower_quartile_complete_all = 0
-        higher_quartile_complete_all = 0
-        if self.time_per_completion:
-            times_to_complete = np.array(self.time_per_completion)
-            # this finds the number experiments with no progress (so they are not double counted when counting iterations remaining)
-            remaining_amount_with_no_progress = len(registered) + len(
-                list(filter(lambda x: not x in specification_progress, active)))
-
-            average_seconds_to_complete = np.median(times_to_complete)
-            expected_seconds_to_complete_all = average_seconds_to_complete * remaining_amount_with_no_progress
-            lower_quartile_complete_all = np.quantile(average_seconds_to_complete,
-                                                      .25) * remaining_amount_with_no_progress
-            higher_quartile_complete_all = np.quantile(average_seconds_to_complete,
-                                                       .75) * remaining_amount_with_no_progress
-
-        if self.time_per_iterations:
-            times_per_iteration = np.array(self.time_per_iterations)
-            remaining_iterations = sum(
-                [max_num - current_progress for current_progress, max_num in specification_progress.values()])
-            if not self.time_per_completion:
-                remaining_amount_with_no_progress = len(registered) + len(
-                    list(filter(lambda x: not x in specification_progress, active)))
-                average_max = np.mean([max_num for current_progress, max_num in specification_progress.values()])
-                remaining_iterations += average_max * remaining_amount_with_no_progress
-
-            expected_seconds_to_complete_all += np.median(times_per_iteration) * remaining_iterations
-            lower_quartile_complete_all += np.quantile(times_per_iteration,
-                                                       .25) * remaining_iterations
-            higher_quartile_complete_all += np.quantile(times_per_iteration,
-                                                        .75) * remaining_iterations
-
-        # Divide by active number since that's the amount of processes running
-        if active:
-            return expected_seconds_to_complete_all / len(active), lower_quartile_complete_all / len(
-                active), higher_quartile_complete_all / len(active)
-        else:
+        if not (active or self.iteration_dataset):
             return 0, 0, 0
+        # elif self.cur_calls < self.batch_size:
+        #     self.cur_calls += 1
+        #     return self.last_estimate
 
+        # --- Create and fit the models using the iteration dataset ---
+        xs, l_ys, m_ys, h_ys = [], [], [], []  # specs, lower, mid, and higher quantiles
+        for spec_id, times in self.iteration_dataset.items():
+            xs.append(self.spec_id_to_entry(spec_id))
+            l_ys.append([np.quantile(times, .25)])
+            m_ys.append([np.quantile(times, .50)])
+            h_ys.append([np.quantile(times, .75)])
+        l_model = LinearRegression().fit(xs, l_ys)
+        m_model = LinearRegression().fit(xs, m_ys)
+        h_model = LinearRegression().fit(xs, h_ys)
+
+        # --- Predict remaining time for each active specification ---
+        running = []
+        for spec_id in active:  # Get specs of running experiments
+            running.append(self.spec_id_to_entry(spec_id))
+        # Get predictions for each running experiment, then loop through them to
+        predictions = [m_model.predict(running), l_model.predict(running), h_model.predict(running)]
+        self.last_estimate = float("-inf"), 0, 0
+        for i, spec_id in enumerate(active):
+            remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
+            t = predictions[0][i][0] * remaining_iterations
+            print(t)
+            if t > self.last_estimate[0]:
+                self.last_estimate = (t, predictions[1][i][0] * remaining_iterations,
+                                      predictions[2][i][0] * remaining_iterations)
+
+        self.cur_calls = 0
+        return self.last_estimate
+
+    def spec_id_to_entry(self, spec_id):
+        """
+        NOTE: Defaults are set to "" (empty str) and 0 for encoded and numerical values, respectively.
+              Might cause errors if not taken into account.
+        """
+        spec, entry = specification_ids_to_specification[spec_id], []
+
+        for key in sorted(encoders.keys()):
+            # Unpack encoding into entry
+            entry += [v[0] for v in encoders[key]["encoder"].transform([[spec.get(key, "")]]).toarray()]
+
+        for key in keys_with_numeric_vals:
+            value = spec.get(key, 0)
+            if isinstance(value, bool):
+                entry.append(int(value))
+            else:
+                entry.append(value)
+
+        return entry
 
 intervals = (
     ('weeks', 604800),  # 60 * 60 * 24 * 7
@@ -198,7 +225,7 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
             stdscr.addstr(row, width - len(status_string), status_string)
             specification_readout_end_index = width - len(status_string)
 
-        specification = specification_id_to_specification[active_specification]
+        specification = str(specification_id_to_specification[active_specification])
         specification_string_start_index = specification_readout_index % len(specification)
         max_allowed_length = specification_readout_end_index - specification_readout_start_index - 1
         if len(specification) <= max_allowed_length:
@@ -247,6 +274,7 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
 
 
 def run(stdscr,eventQueue):
+    global specification_ids_to_specification
     max_events_per_frame = 100
     max_log_spool_events = 10**3
     timeestimator = TimeEstimator()
@@ -257,7 +285,6 @@ def run(stdscr,eventQueue):
     specification_progress = dict()
     registered = []
     failed = []
-    specification_ids_to_specification = dict()
     start_time = time.time()
     specification_readout_index = 0
     while True:
@@ -288,10 +315,14 @@ def run(stdscr,eventQueue):
                     experiment_name = event.name
                 elif isinstance(event, RegisterEvent):
                     registered.append(event.specification_id)
-                    specification_ids_to_specification[event.specification_id] = str(dict(event.specification))
+                    spec = dict(event.specification)
+                    specification_ids_to_specification[event.specification_id] = spec
+                    update_possible_values(spec)
                 elif isinstance(event, FailedEvent):
                     active.remove(event.specification_id)
                     failed.append(event.specification_id)
+                elif isinstance(event, RegistrationCompleteEvent):
+                    fit_encoders()
                 else:
                     print("Dashboard action not understood")
             in_slow_mode = False
@@ -312,6 +343,27 @@ def run(stdscr,eventQueue):
             log_spool = log_spool[-max_log_spool_events:]
         except Exception as e:
             logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
+
+
+def update_possible_values(spec: dict):
+    # NOTE: keys that have a mix of numeric objects and other objects are not handled
+    for key, value in spec.items():
+        key_info = encoders.get(key, None)
+
+        # key gets ignored if numeric and already found
+        if key_info:
+            vals = key_info["values"]
+            if value not in vals:
+                vals.append([value])
+        elif not isinstance(value, (bool, int, float, complex)):
+            encoders[key] = {"encoder": OneHotEncoder(), "values": [[value], [""]]}  # handle_unknown='ignore'
+        elif key not in keys_with_numeric_vals:
+            keys_with_numeric_vals.append(key)
+
+
+def fit_encoders():
+    for key, val in encoders.items():
+        encoders[key]["encoder"].fit(encoders[key]["values"])
 
 
 def start_dashboard(eventQueue):
