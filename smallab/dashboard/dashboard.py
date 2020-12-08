@@ -123,7 +123,7 @@ def display_time(seconds, granularity=2):
 
 
 def draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered, specification_progress,
-                       timeestimator, failed):
+                       timeestimator, failed, in_slow_mode):
     stdscr.addstr(0, 0, "Smallab Running: {name}".format(name=experiment_name))
     row += 1
     stdscr.addstr(row, 0, "-" * width)
@@ -134,7 +134,10 @@ def draw_header_widget(row, stdscr, experiment_name, width, complete, active, re
                                                                                   registered))
     if failed:
         completed_failed_string += " - Failed: {num_failed}".format(num_failed=len(failed))
+    if in_slow_mode:
+        completed_failed_string += " !!! You are logging too fast !!!"
     stdscr.addstr(row, 0, completed_failed_string)
+
     t = timeestimator.compute_time_stats(specification_progress, active, registered)
     if t is not None:
         expected, lower, higher = t
@@ -237,15 +240,16 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
         if not message.isspace():
             try:
                 stdscr.addstr(row, 0, message)
-            except:
-                pass
+            except Exception as e:
+                stdscr.addstr(row,0, str(e)[:width])
             row += 1
     return row
 
 
 def run(stdscr,eventQueue):
+    max_events_per_frame = 100
+    max_log_spool_events = 10**3
     timeestimator = TimeEstimator()
-    i = 0
     log_spool = []
     active = []
     complete = []
@@ -261,7 +265,9 @@ def run(stdscr,eventQueue):
             specification_readout_index += 1
         # Drain Queue:
         try:
-            while not eventQueue.empty():
+            i = 0
+            while not eventQueue.empty() and i < max_events_per_frame:
+                i += 1
                 event = eventQueue.get()
                 if isinstance(event, BeginEvent):
                     registered.remove(event.specification_id)
@@ -277,7 +283,7 @@ def run(stdscr,eventQueue):
                     timeestimator.record_iteration(event.specification_id, event.progress)
                 elif isinstance(event, LogEvent):
                     if not event.message.isspace():
-                            log_spool.append(event.message)
+                        log_spool.append(event.message)
                 elif isinstance(event, StartExperimentEvent):
                     experiment_name = event.name
                 elif isinstance(event, RegisterEvent):
@@ -288,18 +294,22 @@ def run(stdscr,eventQueue):
                     failed.append(event.specification_id)
                 else:
                     print("Dashboard action not understood")
-
+            in_slow_mode = False
+            if i == max_events_per_frame:
+                in_slow_mode = True
             # Draw Screen
             stdscr.clear()
+
             height, width = stdscr.getmaxyx()
             row = 0
             row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
-                                     specification_progress, timeestimator, failed)
+                                     specification_progress, timeestimator, failed, in_slow_mode=in_slow_mode)
             row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,
                                              failed, specification_ids_to_specification, specification_readout_index)
             row = draw_log_widget(row, stdscr, width, height, log_spool)
             stdscr.refresh()
             time.sleep(0.1)
+            log_spool = log_spool[-max_log_spool_events:]
         except Exception as e:
             logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
 
