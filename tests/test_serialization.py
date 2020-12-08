@@ -98,15 +98,15 @@ class TestInProgressSerialization(unittest.TestCase):
         runner = ExperimentRunner()
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
-        self.assertEqual(1, len(os.listdir(get_save_file_directory('test', specification))))
+        self.assertEqual(1, len(os.listdir(get_save_file_directory('test', specification,runner.diff_namer))))
 
     def test_checkpoint_handler_rotates_checkpoints_properly(self):
         experiment = SerializableExperimentFailsAfter4Steps()
         runner = ExperimentRunner()
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
-        self.assertEqual(3, len(os.listdir(get_partial_save_directory("test", specification))))
-        partial_experiment = CheckpointedExperimentHandler().load_most_recent("test", specification)
+        self.assertEqual(3, len(os.listdir(get_partial_save_directory("test", specification,runner.diff_namer))))
+        partial_experiment = CheckpointedExperimentHandler(None,runner.diff_namer).load_most_recent("test", specification)
         self.assertEqual(partial_experiment.j, 3)
 
     def test_un_serializable_experiment_failure(self):
@@ -114,12 +114,12 @@ class TestInProgressSerialization(unittest.TestCase):
         runner = ExperimentRunner()
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
-        self.assertEqual(0, len(os.listdir(get_save_file_directory('test', specification))))
+        self.assertEqual(0, len(os.listdir(get_save_file_directory('test', specification, runner.diff_namer))))
 
     def test_pickle_serializable_experiment_success(self):
         experiment = PickleOnlySerializableExeperiment()
         runner = ExperimentRunner()
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
-        self.assertIn("run.pkl", os.listdir(get_save_file_directory('test', specification)))
-        self.assertIn("specification.json", os.listdir(get_save_file_directory('test', specification)))
+        self.assertIn("run.pkl", os.listdir(get_save_file_directory('test', specification, runner.diff_namer)))
+        self.assertIn("specification.json", os.listdir(get_save_file_directory('test', specification, runner.diff_namer)))

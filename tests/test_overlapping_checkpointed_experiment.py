@@ -10,6 +10,7 @@ from examples.example_utils import delete_experiments_folder
 from smallab.experiment_types.overlapping_output_experiment import OverlappingOutputCheckpointedExperiment, \
     OverlappingOutputCheckpointedExperimentReturnValue
 from smallab.runner.runner import ExperimentRunner
+from smallab.runner_implementations.main_process_runner import MainRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.smallab_types import Specification
 from smallab.specification_generator import SpecificationGenerator
@@ -77,7 +78,7 @@ class TestOverlappingCheckpointedExperiment(unittest.TestCase):
         name = "test"
         # This time we will run them all in parallel
         runner = ExperimentRunner()
-        runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(),
+        runner.run(name, specifications, SimpleExperiment(), specification_runner=MainRunner(),
                    use_dashboard=False, propagate_exceptions=True)
         for result in experiment_iterator(name):
             if result["result"] != []:
@@ -97,6 +98,7 @@ class TestOverlappingCheckpointedExperiment(unittest.TestCase):
         runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(),
                    use_dashboard=False, propagate_exceptions=True)
         for result in experiment_iterator(name):
+            print(result)
             if result["result"] != []:
                 output_specifications.remove(result["specification"])
         self.assertEqual([], output_specifications)
