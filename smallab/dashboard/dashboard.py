@@ -18,10 +18,6 @@ from smallab.file_locations import get_save_directory
 
 # This is a globally accessible queue which stores the events for the dashboard
 
-encoders = dict()  # feature name : dict("encoder" : OneHotEncoder, "values" : list of values)
-specification_ids_to_specification = dict()
-keys_with_numeric_vals = []
-
 
 class TimeEstimator:
     """
@@ -34,12 +30,19 @@ class TimeEstimator:
         self.cur_calls = 10  # resets every batch_size calls to compute_time_stats
         self.batch_size = 10
         self.last_estimate = (0, 0, 0)  # This way we can return the same time estimate every batch_size frames
+
         self.iteration_dataset = {}  # Maps specifications to list of iteration times
         self.completion_dataset = {}  # Maps specifications to list of completion times
+
         self.last_update_time = dict()
         self.start_time = dict()
         self.last_progress = dict()
+
         self.save_file = join(get_save_directory(experiment_name), "dashboard_metadata.json")
+
+        self.encoders = dict()  # feature name : dict("encoder" : OneHotEncoder, "values" : list of values)
+        self.specification_ids_to_specification = dict()
+        self.keys_with_numeric_vals = []
 
         # Make dir and file if it doesn't exist yet
         if not exists(get_save_directory(experiment_name)):
@@ -182,11 +185,11 @@ class TimeEstimator:
         """
         spec, entry = specification_ids_to_specification[spec_id], []
 
-        for key in sorted(encoders.keys()):
+        for key in sorted(self.encoders.keys()):
             # Unpack encoding into entry
-            entry += [v[0] for v in encoders[key]["encoder"].transform([[spec.get(key, "")]]).toarray()]
+            entry += [v[0] for v in self.encoders[key]["encoder"].transform([[spec.get(key, "")]]).toarray()]
 
-        for key in keys_with_numeric_vals:
+        for key in self.keys_with_numeric_vals:
             value = spec.get(key, 0)
             if isinstance(value, bool):
                 entry.append(int(value))
@@ -386,12 +389,12 @@ def run(stdscr, eventQueue, name):
                     registered.append(event.specification_id)
                     spec = dict(event.specification)
                     specification_ids_to_specification[event.specification_id] = spec
-                    update_possible_values(spec)
+                    update_possible_values(timeestimator, spec)
                 elif isinstance(event, FailedEvent):
                     active.remove(event.specification_id)
                     failed.append(event.specification_id)
                 elif isinstance(event, RegistrationCompleteEvent):
-                    fit_encoders()
+                    fit_encoders(timeestimator)
                 else:
                     print("Dashboard action not understood")
             in_slow_mode = False
@@ -414,10 +417,10 @@ def run(stdscr, eventQueue, name):
             logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
 
 
-def update_possible_values(spec: dict):
+def update_possible_values(est: TimeEstimator, spec: dict):
     # NOTE: keys that have a mix of numeric objects and other objects are not handled
     for key, value in spec.items():
-        key_info = encoders.get(key, None)
+        key_info = est.encoders.get(key, None)
 
         # key gets ignored if numeric and already found
         if key_info:
@@ -425,14 +428,14 @@ def update_possible_values(spec: dict):
             if value not in vals:
                 vals.append([value])
         elif not isinstance(value, (bool, int, float, complex)):
-            encoders[key] = {"encoder": OneHotEncoder(), "values": [[value], [""]]}  # handle_unknown='ignore'
-        elif key not in keys_with_numeric_vals:
-            keys_with_numeric_vals.append(key)
+            est.encoders[key] = {"encoder": OneHotEncoder(), "values": [[value], [""]]}  # handle_unknown='ignore'
+        elif key not in est.keys_with_numeric_vals:
+            est.keys_with_numeric_vals.append(key)
 
 
-def fit_encoders():
-    for key, val in encoders.items():
-        encoders[key]["encoder"].fit(encoders[key]["values"])
+def fit_encoders(est: TimeEstimator):
+    for key, val in est.encoders.items():
+        est.encoders[key]["encoder"].fit(est.encoders[key]["values"])
 
 
 def start_dashboard(eventQueue, name):

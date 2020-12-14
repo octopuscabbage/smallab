@@ -2,9 +2,7 @@ import collections
 import itertools
 import json
 import typing
-
 import copy
-import numpy as np
 
 
 class SpecificationGenerator:
@@ -58,13 +56,6 @@ class SpecificationGenerator:
         for index, key, value in enumerate(sorted(generation_specification.items())):
             if isinstance(value, list):
                 iterators.append(list(map(lambda x: (key, x), value)))
-
-                if value:  # in case the list is empty
-                    if not isinstance(value[0], (bool, int)):
-                        # One-hot encode values if not booleans or ints
-                        xs = [[val] for val in value]
-                        xs = np.array(xs)
-                        encoders.setdefault(index, OneHotEncoder().fit(xs))
 
         specifications = []
         for updates in itertools.product(*iterators):
