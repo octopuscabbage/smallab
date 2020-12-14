@@ -139,7 +139,7 @@ class ExperimentRunner(object):
                 #sh = logging.StreamHandler(fq)
                 #sh.setFormatter(formatter)
                 #logging.getLogger("smallab").addHandler(sh)
-                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue,))
+                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue, name,))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
 

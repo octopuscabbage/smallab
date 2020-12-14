@@ -3,15 +3,18 @@ import logging
 import math
 import multiprocessing as mp
 import time
+import json
 
-import scipy.stats as stats
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder
+from os.path import join, exists
+from pathlib import Path
 
 from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, ProgressEvent, LogEvent,
                                                 StartExperimentEvent, RegistrationCompleteEvent,
                                                 RegisterEvent, FailedEvent)
+from smallab.file_locations import get_save_directory
 
 # This is a globally accessible queue which stores the events for the dashboard
 
@@ -27,8 +30,8 @@ class TimeEstimator:
     time to complete the entire batch
     """
 
-    def __init__(self):
-        self.cur_calls = 0  # resets every batch_size calls to compute_time_stats
+    def __init__(self, experiment_name):
+        self.cur_calls = 10  # resets every batch_size calls to compute_time_stats
         self.batch_size = 10
         self.last_estimate = (0, 0, 0)  # This way we can return the same time estimate every batch_size frames
         self.iteration_dataset = {}  # Maps specifications to list of iteration times
@@ -36,6 +39,14 @@ class TimeEstimator:
         self.last_update_time = dict()
         self.start_time = dict()
         self.last_progress = dict()
+        self.save_file = join(get_save_directory(experiment_name), "dashboard_metadata.json")
+
+        # Make dir and file if it doesn't exist yet
+        if not exists(get_save_directory(experiment_name)):
+            Path(get_save_directory(experiment_name)).mkdir(parents=True, exist_ok=True)
+        if not exists(self.save_file):
+            with open(self.save_file, 'w') as f:
+                json.dump({'completions': []}, f)
 
     def record_start(self, specification):
         self.start_time[specification] = time.time()
@@ -67,16 +78,39 @@ class TimeEstimator:
         self.completion_dataset.setdefault(specification, []).append(time_diff)
         self.last_update_time[specification] = current_time
 
+        # Record completion in save file: contents -> 'completions': list(dict("spec":spec_entry, "times":list(times)))
+        with open(self.save_file, "r") as f:
+            contents = json.load(f)
+            completions = contents.setdefault('completions', [])
+
+        # Add completion time to dataset
+        spec_entry = self.spec_id_to_entry(specification)
+        found = False
+        for rec in completions:
+            if rec['spec'] == spec_entry:
+                rec['times'].append(time_diff)
+                found = True
+                break
+
+        if not found:
+            completions.append({"spec": spec_entry, "times": [time_diff]})
+
+        # Save updated dataset
+        with open(self.save_file, "w") as f:
+            json.dump(contents, f, indent=4)
+
     def compute_time_stats(self, specification_progress, active, registered):
         # Calculate this differently it should be remaining_progress + active_not_in_progress
         # Dictionary is empty, use number active and completion time to estimate
         # The math here is a little wonky since idk if median and quartiles work with iterated expectation
 
-        if not (active or self.iteration_dataset):
+        if not active:
             return 0, 0, 0
-        # elif self.cur_calls < self.batch_size:
-        #     self.cur_calls += 1
-        #     return self.last_estimate
+        elif not self.iteration_dataset:
+            return self.completion_estimate(specification_progress, active)
+        elif self.cur_calls < self.batch_size:
+            self.cur_calls += 1
+            return self.last_estimate
 
         # --- Create and fit the models using the iteration dataset ---
         xs, l_ys, m_ys, h_ys = [], [], [], []  # specs, lower, mid, and higher quantiles
@@ -93,19 +127,52 @@ class TimeEstimator:
         running = []
         for spec_id in active:  # Get specs of running experiments
             running.append(self.spec_id_to_entry(spec_id))
-        # Get predictions for each running experiment, then loop through them to
+
+        # Get predictions for each running spec, then loop through them to find the longest running one
         predictions = [m_model.predict(running), l_model.predict(running), h_model.predict(running)]
         self.last_estimate = float("-inf"), 0, 0
         for i, spec_id in enumerate(active):
             remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
             t = predictions[0][i][0] * remaining_iterations
-            print(t)
+
             if t > self.last_estimate[0]:
                 self.last_estimate = (t, predictions[1][i][0] * remaining_iterations,
                                       predictions[2][i][0] * remaining_iterations)
 
         self.cur_calls = 0
         return self.last_estimate
+
+    def completion_estimate(self, specification_progress, active):
+        """ Returns a time estimate based on previous runs, if any. """
+        with open(self.save_file, "r") as f:
+            contents = json.load(f)
+            completions = contents.setdefault('completions', [])
+
+        times = [0]
+        max_time_left = 0
+        for i, spec_id in enumerate(active):
+            remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
+            entry = self.spec_id_to_entry(spec_id)
+
+            # Get the avg completion time for this spec
+            temp_times = []
+            for c in completions:
+                if entry == c['spec']:
+                    temp_times = c['times']
+                    break
+
+            if not temp_times:
+                continue
+
+            # iteration time * iterations left
+            t = (np.mean(temp_times) / specification_progress[spec_id][1]) * remaining_iterations
+
+            # keep track of max time
+            if t > max_time_left:
+                max_time_left = t
+                times = temp_times
+
+        return np.quantile(times, 0.5), np.quantile(times, 0.25), np.quantile(times, 0.75)
 
     def spec_id_to_entry(self, spec_id):
         """
@@ -126,6 +193,7 @@ class TimeEstimator:
                 entry.append(value)
 
         return entry
+
 
 intervals = (
     ('weeks', 604800),  # 60 * 60 * 24 * 7
@@ -273,11 +341,11 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
     return row
 
 
-def run(stdscr,eventQueue):
+def run(stdscr, eventQueue, name):
     global specification_ids_to_specification
     max_events_per_frame = 100
     max_log_spool_events = 10**3
-    timeestimator = TimeEstimator()
+    timeestimator = TimeEstimator(name)
     log_spool = []
     active = []
     complete = []
@@ -366,6 +434,6 @@ def fit_encoders():
         encoders[key]["encoder"].fit(encoders[key]["values"])
 
 
-def start_dashboard(eventQueue):
-    curses.wrapper(run,eventQueue)
+def start_dashboard(eventQueue, name):
+    curses.wrapper(run, eventQueue, name)
 

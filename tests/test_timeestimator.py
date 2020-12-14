@@ -44,6 +44,7 @@ class TestTimeEstimator(unittest.TestCase):
         self.assertAlmostEqual(e, sleep_time, places=1)
 
     def test_bimodal_experiment(self):
+        # Comment out lines 77-79 in dashboard.py for this test to work
 
         # Register the specifications' values then create the encoders
         spec1, spec2 = {"what": "nice", "hm": 1}, {"what": "cool", "hm": 2}
@@ -53,10 +54,15 @@ class TestTimeEstimator(unittest.TestCase):
         specification_ids_to_specification.update({"test1": spec1, "test2": spec2})
 
         sleep1, sleep2 = .2, .3
-        timeestimator = TimeEstimator()
+        timeestimator = TimeEstimator('Bimodal Experiment')
 
         print("starting 1")
         timeestimator.record_start("test1")
+
+        # Initial time estimate given past completion times of test 1, if any.
+        e, l, u = timeestimator.compute_time_stats({"test1": (0, 50), "test2": (0, 50)}, ["test2", "test1"], [])
+        print(e, l, u)
+
         for i in range(20):
             time.sleep(sleep1)
             timeestimator.record_iteration("test1", i)
