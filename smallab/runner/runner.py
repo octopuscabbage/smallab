@@ -9,6 +9,7 @@ import os
 from smallab.callbacks import CallbackManager
 from smallab.dashboard.dashboard import start_dashboard
 from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent, RegistrationCompleteEvent
+from smallab.experiment_naming import DiffNamer
 from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.file_locations import (get_save_directory, get_experiment_save_directory)
@@ -88,7 +89,7 @@ class ExperimentRunner(object):
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: ExperimentBase,
             continue_from_last_run=True, propagate_exceptions=False,
             force_pickle=False, specification_runner: SimpleAbstractRunner = MultiprocessingRunner(),
-            use_dashboard=True, context_type="fork", multiprocessing_lib=None,save_every_k=None) -> typing.NoReturn:
+            use_dashboard=True, context_type="fork", multiprocessing_lib=None, use_diff_namer=True) -> typing.NoReturn:
 
         """
         The method called to run an experiment
@@ -103,6 +104,11 @@ class ExperimentRunner(object):
         :param use_dashboard: If true, use the terminal monitoring dashboard. If false, just stream logs to stdout.
         :return: No return
         """
+        if use_diff_namer:
+            diff_namer = DiffNamer(specifications)
+        else:
+            diff_namer = None
+        self.diff_namer = diff_namer
         if multiprocessing_lib is None:
             import multiprocessing as mp
         else:
@@ -155,17 +161,22 @@ class ExperimentRunner(object):
                 callback.set_experiment_name(name)
 
             for specification in need_to_run_specifications:
-                put_in_event_queue(eventQueue, RegisterEvent(specification_hash(specification), specification))
+                if diff_namer is not None:
+                    specification_name = diff_namer.get_name(specification)
+                else:
+                    specification_name = specification_hash(specification)
+                put_in_event_queue(eventQueue, RegisterEvent(specification_name, specification))
+                
             put_in_event_queue(eventQueue, RegistrationCompleteEvent())
-
+            
             if isinstance(specification_runner, SimpleAbstractRunner):
                 specification_runner.run(need_to_run_specifications,
                                          lambda specification: run_and_save(name, experiment, specification,
                                                                             propagate_exceptions, self.callbacks,
-                                                                            self.force_pickle, eventQueue))
+                                                                            self.force_pickle, eventQueue, diff_namer))
             elif isinstance(specification_runner, ComplexAbstractRunner):
                 specification_runner.run(need_to_run_specifications, name, experiment, propagate_exceptions,
-                                         self.callbacks, self.force_pickle, eventQueue)
+                                         self.callbacks, self.force_pickle, eventQueue, diff_namer)
 
             self._write_to_completed_json(name, specification_runner.get_completed(),
                                           specification_runner.get_failed_specifications())

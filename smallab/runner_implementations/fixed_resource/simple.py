@@ -11,12 +11,12 @@ from smallab.runner_implementations.multiprocessing_runner import apply_async
 from smallab.smallab_types import Specification
 
 
-def run(resource, name, experiment, specification, propagate_exceptions, callbacks, force_pickle, eventQueue):
+def run(resource, name, experiment, specification, propagate_exceptions, callbacks, force_pickle, eventQueue,diff_namer):
     experiment_copy = deepcopy(experiment)
     experiment_copy.resource = resource
     return (specification, resource,
             run_and_save(name, experiment_copy, specification, propagate_exceptions, callbacks, force_pickle,
-                         eventQueue))
+                         eventQueue,diff_namer))
 
 
 class SimpleFixedResourceAllocatorRunner(ComplexAbstractRunner):
@@ -41,7 +41,7 @@ class SimpleFixedResourceAllocatorRunner(ComplexAbstractRunner):
 
     def run(self, specifications_to_run: typing.List[Specification], experiment_name: typing.AnyStr,
             experiment: ExperimentBase, propagate_exceptions: bool, callbacks: typing.List[CallbackManager],
-            force_pickle: bool, eventQueue):
+            force_pickle: bool, eventQueue,diff_namer):
 
         pool = self.get_multiprocessing_context().Pool(len(self.resources))
         specification_queue = deepcopy(specifications_to_run)
@@ -53,7 +53,7 @@ class SimpleFixedResourceAllocatorRunner(ComplexAbstractRunner):
             specification = specification_queue.pop()
             active_jobs.append(apply_async(pool, run, (
             resource, experiment_name, experiment, specification, propagate_exceptions, callbacks, force_pickle,
-            eventQueue)))
+            eventQueue, diff_namer)))
         results = []
         # Poll and queue more resources
         while specification_queue != []:
@@ -69,7 +69,7 @@ class SimpleFixedResourceAllocatorRunner(ComplexAbstractRunner):
                     specification = specification_queue.pop()
                     active_jobs.append(apply_async(pool, run, (
                         resource, experiment_name, experiment, specification, propagate_exceptions, callbacks,
-                        force_pickle, eventQueue)))
+                        force_pickle, eventQueue,diff_namer)))
             assert len(active_jobs) <= len(self.resources)
         #finish up all active jobs
         while active_jobs != []:
