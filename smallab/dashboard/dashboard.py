@@ -172,7 +172,8 @@ class TimeEstimator:
                 max_time_left = t
                 times = temp_times
 
-        return np.quantile(times, 0.5), np.quantile(times, 0.25), np.quantile(times, 0.75)
+        self.last_estimate = np.quantile(times, 0.5), np.quantile(times, 0.25), np.quantile(times, 0.75)
+        return self.last_estimate
 
     def spec_id_to_entry(self, spec_id):
         """
