@@ -43,6 +43,7 @@ class TimeEstimator:
         self.encoders = dict()  # feature name : dict("encoder" : OneHotEncoder, "values" : list of values)
         self.specification_ids_to_specification = dict()
         self.keys_with_numeric_vals = []
+        self.first_estimate = True
 
         # Make dir and file if it doesn't exist yet
         if not exists(get_save_directory(experiment_name)):
@@ -109,7 +110,8 @@ class TimeEstimator:
 
         if not active:
             return 0, 0, 0
-        elif not self.iteration_dataset:
+        elif self.first_estimate:
+            self.first_estimate = False
             return self.completion_estimate(specification_progress, active)
         elif self.cur_calls < self.batch_size:
             self.cur_calls += 1
