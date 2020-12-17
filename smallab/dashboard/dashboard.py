@@ -120,11 +120,7 @@ class TimeEstimator:
 
         # Get all running specifications as entries in 2 lists: those using iterations and not using them
         w_iters, wo_iters = [], []
-        for spec_id in active:
-            if spec_id in specification_progress.keys():
-                w_iters.append(spec_id)
-            else:
-                wo_iters.append(spec_id)
+        [(w_iters if spec_id in specification_progress.keys() else wo_iters).append(spec_id) for spec_id in active]
 
         # Get predictions for each running spec and reset the last time estimate to the minimum
         i_predictions, c_predictions = [], []  # iteration/completion predictions
