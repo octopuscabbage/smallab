@@ -92,12 +92,12 @@ class TimeEstimator:
         found = False
         for rec in completions:
             if rec['spec'] == spec_entry:
-                rec['times'].append(time_diff)
+                rec['time'] = time_diff
                 found = True
                 break
 
         if not found:
-            completions.append({"spec": spec_entry, "times": [time_diff]})
+            completions.append({"spec": spec_entry, "time": time_diff})
 
         # Save updated dataset
         with open(self.save_file, "w") as f:
@@ -108,6 +108,7 @@ class TimeEstimator:
         # Dictionary is empty, use number active and completion time to estimate
         # The math here is a little wonky since idk if median and quartiles work with iterated expectation
 
+        # Check for initial exit conditions
         if not active:
             return 0, 0, 0
         elif self.first_estimate:
@@ -117,7 +118,52 @@ class TimeEstimator:
             self.cur_calls += 1
             return self.last_estimate
 
-        # --- Create and fit the models using the iteration dataset ---
+        # Get all running specifications as entries in 2 lists: those using iterations and not using them
+        w_iters, wo_iters = [], []
+        for spec_id in active:
+            if spec_id in specification_progress.keys():
+                w_iters.append(spec_id)
+            else:
+                wo_iters.append(spec_id)
+
+        # Get predictions for each running spec and reset the last time estimate to the minimum
+        i_predictions, c_predictions = [], []  # iteration/completion predictions
+        if w_iters:
+            running = [self.spec_id_to_entry(spec_id) for spec_id in w_iters]
+            i_predictions = [model.predict(running) for model in self.get_iteration_models()]
+        if wo_iters:
+            c_predictions = self.get_completion_model().predict(
+                [self.spec_id_to_entry(spec_id) for spec_id in wo_iters]
+            )
+        self.last_estimate = float("-inf"), 0, 0
+
+        # Iterate through specs that report iterations and update longest estimate
+        for i, spec_id in enumerate(w_iters):
+            remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
+            t = i_predictions[0][i][0] * remaining_iterations  # per-iteration expected * remaining iterations
+
+            if t > self.last_estimate[0]:
+                self.last_estimate = (t, i_predictions[1][i][0] * remaining_iterations,
+                                      i_predictions[2][i][0] * remaining_iterations)
+
+        # Do the same with the experiments that only report completions
+        cur_time = time.time()
+        for i, spec_id in enumerate(wo_iters):
+            elapsed = cur_time - self.start_time[spec_id]
+            t = c_predictions[i][0] - elapsed  # Total predicted execution time - elapsed time for this spec
+
+            if t > self.last_estimate[0]:
+                self.last_estimate = (t, t, t)  # Can't estimate quartiles, just report the same value for all of them
+
+        # Reset cur calls and return the longest time estimate
+        self.cur_calls = 0
+        return self.last_estimate
+
+    def get_iteration_models(self):
+        """
+        Create and fit models for each quartile using the iteration dataset
+        """
+
         xs, l_ys, m_ys, h_ys = [], [], [], []  # specs, lower, mid, and higher quantiles
         for spec_id, times in self.iteration_dataset.items():
             xs.append(self.spec_id_to_entry(spec_id))
@@ -128,24 +174,26 @@ class TimeEstimator:
         m_model = LinearRegression().fit(xs, m_ys)
         h_model = LinearRegression().fit(xs, h_ys)
 
-        # --- Predict remaining time for each active specification ---
-        running = []
-        for spec_id in active:  # Get specs of running experiments
-            running.append(self.spec_id_to_entry(spec_id))
+        return m_model, l_model, h_model
 
-        # Get predictions for each running spec, then loop through them to find the longest running one
-        predictions = [m_model.predict(running), l_model.predict(running), h_model.predict(running)]
-        self.last_estimate = float("-inf"), 0, 0
-        for i, spec_id in enumerate(active):
-            remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
-            t = predictions[0][i][0] * remaining_iterations
+    def get_completion_model(self):
+        """
+        Creates and fits a model from the completions found in the dashboard_metadata file
+        """
 
-            if t > self.last_estimate[0]:
-                self.last_estimate = (t, predictions[1][i][0] * remaining_iterations,
-                                      predictions[2][i][0] * remaining_iterations)
+        with open(self.save_file, "r") as f:
+            contents = json.load(f)
 
-        self.cur_calls = 0
-        return self.last_estimate
+        completions = contents.get('completions', None)
+        if not completions:
+            return None
+
+        xs, ys = [], []
+        for rec in completions:
+            xs.append(rec['spec'])
+            ys.append([rec['time']])
+
+        return LinearRegression().fit(xs, ys)
 
     def completion_estimate(self, specification_progress, active):
         """ Returns a time estimate based on previous runs, if any. """
