@@ -118,6 +118,44 @@ class TimeEstimator:
             self.cur_calls += 1
             return self.last_estimate
 
+        # Get the models
+        models = self.get_all_models()
+
+        # Get the mean time remaining of the active experiments
+        estimate = self.get_running_estimate(specification_progress, active, models)
+
+        # Get estimates for the registered but not running specs
+        m_times, l_times, u_times = [], [], []
+        for spec_id in registered:
+            if spec_id not in active + list(self.completion_dataset.keys()):
+                entry = self.spec_id_to_entry(spec_id)
+                _, num_iterations = specification_progress.get(spec_id, (None, None))
+                if num_iterations:  # Use the iteration models
+                    m_times.append(models[0].predict([entry])[0][0] * num_iterations)
+                    l_times.append(models[1].predict([entry])[0][0] * num_iterations)
+                    u_times.append(models[2].predict([entry])[0][0] * num_iterations)
+                elif models[3]:  # use the completion model if available. otherwise ignore
+                    m_times.append(models[3].predict([entry])[0][0])
+
+        # Add the sum of the completion times/num threads to get the avg expected time left
+        num_threads = len(active)
+        self.last_estimate = (estimate[0] + sum(m_times) / num_threads,
+                              estimate[1] + sum(l_times) / num_threads,
+                              estimate[2] + sum(u_times) / num_threads)
+
+        # Reset cur calls and return the estimate
+        self.cur_calls = 0
+        return self.last_estimate
+
+    def get_running_estimate(self, specification_progress, active, models):
+        """
+        Gets the mean time remaining of all the running specifications.
+        """
+
+        # .5, .25, .75 quantile models for iteration times, and completion time model
+        iter_models, c_model = (models[0], models[1], models[2]), models[3]
+        m_times, l_times, u_times = [], [], []
+
         # Get all running specifications as entries in 2 lists: those using iterations and not using them
         w_iters, wo_iters = [], []
         [(w_iters if spec_id in specification_progress.keys() else wo_iters).append(spec_id) for spec_id in active]
@@ -126,51 +164,49 @@ class TimeEstimator:
         i_predictions, c_predictions = [], []  # iteration/completion predictions
         if w_iters:
             running = [self.spec_id_to_entry(spec_id) for spec_id in w_iters]
-            i_predictions = [model.predict(running) for model in self.get_iteration_models()]
-        if wo_iters:
-            c_predictions = self.get_completion_model().predict(
+            i_predictions = [model.predict(running) for model in iter_models]
+        if wo_iters and c_model:
+            c_predictions = c_model.predict(
                 [self.spec_id_to_entry(spec_id) for spec_id in wo_iters]
             )
-        self.last_estimate = float("-inf"), 0, 0
 
         # Iterate through specs that report iterations and update longest estimate
         for i, spec_id in enumerate(w_iters):
             remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
-            t = i_predictions[0][i][0] * remaining_iterations  # per-iteration expected * remaining iterations
 
-            if t > self.last_estimate[0]:
-                self.last_estimate = (t, i_predictions[1][i][0] * remaining_iterations,
-                                      i_predictions[2][i][0] * remaining_iterations)
+            m_times.append(i_predictions[0][i][0] * remaining_iterations)  # time/iteration * remaining iterations
+            l_times.append(i_predictions[1][i][0] * remaining_iterations)
+            u_times.append(i_predictions[2][i][0] * remaining_iterations)
 
         # Do the same with the experiments that only report completions
-        cur_time = time.time()
-        for i, spec_id in enumerate(wo_iters):
-            elapsed = cur_time - self.start_time[spec_id]
-            t = c_predictions[i][0] - elapsed  # Total predicted execution time - elapsed time for this spec
+        if c_model:  # We can't estimate these if there is no data to go off of
+            cur_time = time.time()
+            for i, spec_id in enumerate(wo_iters):
+                elapsed = cur_time - self.start_time[spec_id]
+                t = c_predictions[i][0] - elapsed  # Total predicted execution time - elapsed time for this spec
+                m_times.append(t)
 
-            if t > self.last_estimate[0]:
-                self.last_estimate = (t, t, t)  # Can't estimate quartiles, just report the same value for all of them
+        # Not sure if taking the mean of the upper and lower quartiles is valid
+        return np.mean(m_times), np.mean(l_times), np.mean(u_times)
 
-        # Reset cur calls and return the longest time estimate
-        self.cur_calls = 0
-        return self.last_estimate
-
-    def get_iteration_models(self):
+    def get_all_models(self):
         """
-        Create and fit models for each quartile using the iteration dataset
+        Create and fit models for each quartile using the iteration dataset,
+        as well as a model for completion times
         """
 
-        xs, l_ys, m_ys, h_ys = [], [], [], []  # specs, lower, mid, and higher quantiles
+        # Iteration time models
+        xs, l_ys, m_ys, u_ys = [], [], [], []  # specs, lower, mid, and higher quantiles
         for spec_id, times in self.iteration_dataset.items():
             xs.append(self.spec_id_to_entry(spec_id))
             l_ys.append([np.quantile(times, .25)])
             m_ys.append([np.quantile(times, .50)])
-            h_ys.append([np.quantile(times, .75)])
+            u_ys.append([np.quantile(times, .75)])
         l_model = LinearRegression().fit(xs, l_ys)
         m_model = LinearRegression().fit(xs, m_ys)
-        h_model = LinearRegression().fit(xs, h_ys)
+        u_model = LinearRegression().fit(xs, u_ys)
 
-        return m_model, l_model, h_model
+        return m_model, l_model, u_model, self.get_completion_model()
 
     def get_completion_model(self):
         """
@@ -229,7 +265,7 @@ class TimeEstimator:
         NOTE: Defaults are set to "" (empty str) and 0 for encoded and numerical values, respectively.
               Might cause errors if not taken into account.
         """
-        spec, entry = specification_ids_to_specification[spec_id], []
+        spec, entry = self.specification_ids_to_specification[spec_id], []
 
         for key in sorted(self.encoders.keys()):
             # Unpack encoding into entry
@@ -243,6 +279,25 @@ class TimeEstimator:
                 entry.append(value)
 
         return entry
+
+    def fit_encoders(self):
+        for key, val in self.encoders.items():
+            self.encoders[key]["encoder"].fit(self.encoders[key]["values"])
+
+    def update_possible_values(self, spec: dict):
+        # NOTE: keys that have a mix of numeric objects and other objects are not handled
+        for key, value in spec.items():
+            key_info = self.encoders.get(key, None)
+
+            # key gets ignored if numeric and already found
+            if key_info:
+                vals = key_info["values"]
+                if value not in vals:
+                    vals.append([value])
+            elif not isinstance(value, (bool, int, float, complex)):
+                self.encoders[key] = {"encoder": OneHotEncoder(), "values": [[value], [""]]}  # handle_unknown='ignore'
+            elif key not in self.keys_with_numeric_vals:
+                self.keys_with_numeric_vals.append(key)
 
 
 intervals = (
@@ -435,12 +490,12 @@ def run(stdscr, eventQueue, name):
                     registered.append(event.specification_id)
                     spec = dict(event.specification)
                     specification_ids_to_specification[event.specification_id] = spec
-                    update_possible_values(timeestimator, spec)
+                    timeestimator.update_possible_values(spec)
                 elif isinstance(event, FailedEvent):
                     active.remove(event.specification_id)
                     failed.append(event.specification_id)
                 elif isinstance(event, RegistrationCompleteEvent):
-                    fit_encoders(timeestimator)
+                    timeestimator.fit_encoders()
                 else:
                     print("Dashboard action not understood")
             in_slow_mode = False
@@ -461,27 +516,6 @@ def run(stdscr, eventQueue, name):
             log_spool = log_spool[-max_log_spool_events:]
         except Exception as e:
             logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
-
-
-def update_possible_values(est: TimeEstimator, spec: dict):
-    # NOTE: keys that have a mix of numeric objects and other objects are not handled
-    for key, value in spec.items():
-        key_info = est.encoders.get(key, None)
-
-        # key gets ignored if numeric and already found
-        if key_info:
-            vals = key_info["values"]
-            if value not in vals:
-                vals.append([value])
-        elif not isinstance(value, (bool, int, float, complex)):
-            est.encoders[key] = {"encoder": OneHotEncoder(), "values": [[value], [""]]}  # handle_unknown='ignore'
-        elif key not in est.keys_with_numeric_vals:
-            est.keys_with_numeric_vals.append(key)
-
-
-def fit_encoders(est: TimeEstimator):
-    for key, val in est.encoders.items():
-        est.encoders[key]["encoder"].fit(est.encoders[key]["values"])
 
 
 def start_dashboard(eventQueue, name):

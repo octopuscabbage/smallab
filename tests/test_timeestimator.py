@@ -2,17 +2,18 @@ import time
 import typing
 import unittest
 
-from smallab.dashboard.dashboard import (TimeEstimator, update_possible_values, fit_encoders,
-                                         specification_ids_to_specification)
+from smallab.dashboard.dashboard import TimeEstimator
 from smallab.experiment_types.experiment import Experiment
 from smallab.smallab_types import Specification
 
-#These tests are kind of flimsy since they rely on time.sleep
+# These tests are kind of flimsy since they rely on time.sleep
+
 
 class TenSecondExperiment(Experiment):
     def main(self, specification: Specification) -> typing.Dict:
         time.sleep(10)
         return dict()
+
 
 class TestTimeEstimator(unittest.TestCase):
     def test_expectation_completed_experiment(self):
@@ -44,17 +45,18 @@ class TestTimeEstimator(unittest.TestCase):
         self.assertAlmostEqual(e, sleep_time, places=1)
 
     def test_bimodal_experiment(self):
-        # Comment out lines 77-79 in dashboard.py for this test to work
+        # Comment out lines 117-119 in dashboard.py for this test to work
+
+        timeestimator = TimeEstimator('Bimodal Experiment')
 
         # Register the specifications' values then create the encoders
         spec1, spec2 = {"what": "nice", "hm": 1}, {"what": "cool", "hm": 2}
-        update_possible_values(spec1)
-        update_possible_values(spec2)
-        fit_encoders()
-        specification_ids_to_specification.update({"test1": spec1, "test2": spec2})
+        timeestimator.update_possible_values(spec1)
+        timeestimator.update_possible_values(spec2)
+        timeestimator.fit_encoders()
+        timeestimator.specification_ids_to_specification.update({"test1": spec1, "test2": spec2})
 
         sleep1, sleep2 = .2, .3
-        timeestimator = TimeEstimator('Bimodal Experiment')
 
         print("starting 1")
         timeestimator.record_start("test1")
