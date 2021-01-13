@@ -8,7 +8,7 @@ import os
 
 from smallab.callbacks import CallbackManager
 from smallab.dashboard.dashboard import start_dashboard
-from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent
+from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent, RegistrationCompleteEvent
 from smallab.experiment_naming import DiffNamer
 from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
 from smallab.experiment_types.experiment import ExperimentBase
@@ -145,7 +145,7 @@ class ExperimentRunner(object):
                 #sh = logging.StreamHandler(fq)
                 #sh.setFormatter(formatter)
                 #logging.getLogger("smallab").addHandler(sh)
-                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue,))
+                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue, name,))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
 
@@ -166,6 +166,9 @@ class ExperimentRunner(object):
                 else:
                     specification_name = specification_hash(specification)
                 put_in_event_queue(eventQueue, RegisterEvent(specification_name, specification))
+                
+            put_in_event_queue(eventQueue, RegistrationCompleteEvent())
+            
             if isinstance(specification_runner, SimpleAbstractRunner):
                 specification_runner.run(need_to_run_specifications,
                                          lambda specification: run_and_save(name, experiment, specification,

@@ -51,7 +51,7 @@ class CheckpointedExperimentHandler(BaseHandler):
                 name = self.diff_namer.get_name(specification)
             else:
                 name = specification_hash(specification)
-            put_in_event_queue(self.eventQueue,ProgressEvent(name, result[0], result[1]))
+            put_in_event_queue(self.eventQueue, ProgressEvent(name, result[0], result[1]))
 
 
     def load_most_recent(self, name, specification):
