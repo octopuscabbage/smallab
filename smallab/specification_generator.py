@@ -53,7 +53,7 @@ class SpecificationGenerator:
         generation_specification = collections.OrderedDict(sorted(generation_specification.items()))
         iterators = []
 
-        for key, value in enumerate(sorted(generation_specification.items())):
+        for key, value in sorted(generation_specification.items()):
             if isinstance(value, list):
                 iterators.append(list(map(lambda x: (key, x), value)))
 
