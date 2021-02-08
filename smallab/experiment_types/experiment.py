@@ -1,11 +1,38 @@
 import typing
 
 import abc
+import os
 
 from smallab.smallab_types import Specification
 
 
 class ExperimentBase(abc.ABC):
+    def set_experiment_local_storage(self,experiment_local_storage_folder):
+        """
+        Called by ExperimentRunner to set up a folder for saving temporary data to file during an experiment, such as model weights
+        :param folder:
+        :return:
+        """
+        self.experiment_local_storage_folder = experiment_local_storage_folder
+    def set_specification_local_storage(self, specification_local_storage_folder):
+        self.specification_local_storage_folder = specification_local_storage_folder
+    def get_specification_local_storage(self):
+        """
+        Returns the name of a folder to store extra data that pertains to a certain specification
+
+        Folder is guarunteed to exist
+        :param folder:
+        :return:
+        """
+        os.makedirs(self.specification_local_storage_folder,exist_ok=True)
+        return self.specification_local_storage_folder
+    def get_experiment_local_storage(self):
+        """
+        Returns the name of a folder to store as a cache for all specifications using this experiment name
+        :return:
+        """
+        os.makedirs(self.experiment_local_storage_folder, exist_ok=True)
+        return self.experiment_local_storage_folder
     def set_logger_name(self, logger):
         """
         Called by ExperimentRunner to set a per-experiment logger

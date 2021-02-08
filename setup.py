@@ -13,12 +13,13 @@ required = [
     'tqdm',
     'humanhash3',
     'python-dateutil',
-    'dill'
+    'dill',
+    'scikit-learn'
 ]
 
 setup(
     name="smallab",
-    version="1.10.2",
+    version="1.11.0",
     url='https://github.com/octopuscabbage/smallab',
     packages=find_packages(),
     install_requires=required,

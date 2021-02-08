@@ -18,6 +18,7 @@ class SimpleExperiment(Experiment):
         logging.getLogger(self.get_logger_name()).info("Doing work!")
         random.seed(specification["seed"])
         for i in range(specification["num_calls"]):  # Advance the random number generator some amount
+            logging.getLogger(self.get_logger_name()).info("...")
             random.random()
         return {"number": random.random()}
 
