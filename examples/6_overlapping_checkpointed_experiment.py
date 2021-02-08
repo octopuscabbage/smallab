@@ -1,5 +1,6 @@
 # Similar experiment as before but now it will sleep for a bit, taking longer to complete in serial
 import logging
+import time
 
 from copy import deepcopy
 from numpy.random.mtrand import RandomState
@@ -29,6 +30,7 @@ class SimpleExperiment(OverlappingOutputCheckpointedExperiment):
         logging.getLogger(self.get_logger_name()).info("Stepping")
         self.i += 1
         self.r = self.rs.random()
+        time.sleep(1)
         # this experiment can have a random transient failure!
         # Since it's checkpointed, it will likely succeed after running it again
         # if random.randint(0,100) > 90:
@@ -45,10 +47,13 @@ class SimpleExperiment(OverlappingOutputCheckpointedExperiment):
         else:
             # This experiment isn't done, return the progress as a tuple to update the dashboard
             return (self.i, self.num_calls)
+    #Tells the dashboard how many iterations this experiment will run for
+    def max_iterations(self,specification):
+        return specification["num_calls"]
 
 
 # Same specification as before
-generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [[10, 20, 30]]}
+generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": (10, 20, 30)}
 specifications = SpecificationGenerator().generate(generation_specification)
 
 name = "overlapping_checkpointed_run"

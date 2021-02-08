@@ -18,8 +18,12 @@ class HasCheckpoint(abc.ABC):
     def get_steps_since_checkpiont(self) -> int:
         return self.steps_since_checkpoint
 
+class IterativeExperiment(abc.ABC):
+    @abc.abstractmethod
+    def max_iterations(self,specification):
+        pass
 
-class CheckpointedExperiment(ExperimentBase, HasCheckpoint):
+class CheckpointedExperiment(ExperimentBase, HasCheckpoint, IterativeExperiment):
     """
     CheckpointedExperiment is an Experiment which can be stopped and restarted.
     Step is called multiple times, after it returns the current experiment is serialized allowing the experiment to
@@ -32,6 +36,7 @@ class CheckpointedExperiment(ExperimentBase, HasCheckpoint):
     {} is called internally by smallab, []* is called multiple times
     {.set_logging_folder() -> .get_logging_folder() -> .set_logger()} -> .initialize() -> [.step()]*
     """
+
 
     @abc.abstractmethod
     def initialize(self, specification: Specification):

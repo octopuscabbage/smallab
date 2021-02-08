@@ -12,6 +12,7 @@ tqdm = "*"
 joblib = "*"
 humanhash3 = "*"
 dill = "*"
+scikit-learn="*"
 python-dateutil = "*"
 
 [requires]

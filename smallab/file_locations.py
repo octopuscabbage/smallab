@@ -74,3 +74,16 @@ def get_partial_save_directory(name, specification, diff_namer):
 
 def get_log_file(experiment, specification_id):
     return os.path.join(experiment.get_logging_folder(), specification_id + ".log")
+
+
+def get_experiment_local_storage(name):
+    return os.path.join(get_save_directory(name),"tmp")
+def get_specification_local_storage(name,specification, diff_namer,extended_keys=False):
+    if diff_namer is not None:
+        if extended_keys:
+            expr_name = diff_namer.get_extended_name(specification)
+        else:
+            expr_name = diff_namer.get_name(specification)
+    else:
+        expr_name = specification_hash(specification)
+    return os.path.join(get_experiment_local_storage(name),expr_name)

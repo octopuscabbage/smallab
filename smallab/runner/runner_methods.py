@@ -10,7 +10,8 @@ from smallab.dashboard.dashboard_events import BeginEvent, CompleteEvent, Failed
 from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
 from smallab.experiment_types.handlers.registry import run_with_correct_handler
 from smallab.file_locations import (get_json_file_location, get_save_file_directory, get_pkl_file_location,
-                                    get_specification_file_location, get_log_file)
+                                    get_specification_file_location, get_log_file, get_experiment_local_storage,
+                                    get_specification_local_storage)
 from smallab.specification_hashing import specification_hash
 
 
@@ -72,6 +73,8 @@ def run_and_save(name, experiment, specification, propagate_exceptions, callback
     #TODO need to attach eventqueue logger handler here and not at base logger
 
     experiment.set_logger_name(logger_name)
+    experiment.set_experiment_local_storage(get_experiment_local_storage(name))
+    experiment.set_specification_local_storage(get_specification_local_storage(name,specification,diff_namer))
     put_in_event_queue(eventQueue,BeginEvent(specification_id))
 
     def _interior_fn():

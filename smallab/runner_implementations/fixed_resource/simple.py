@@ -14,6 +14,7 @@ from smallab.smallab_types import Specification
 def run(resource, name, experiment, specification, propagate_exceptions, callbacks, force_pickle, eventQueue,diff_namer):
     experiment_copy = deepcopy(experiment)
     experiment_copy.resource = resource
+
     return (specification, resource,
             run_and_save(name, experiment_copy, specification, propagate_exceptions, callbacks, force_pickle,
                          eventQueue,diff_namer))

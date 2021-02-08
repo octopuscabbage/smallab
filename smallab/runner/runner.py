@@ -8,9 +8,11 @@ import os
 
 from smallab.callbacks import CallbackManager
 from smallab.dashboard.dashboard import start_dashboard
-from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent, RegistrationCompleteEvent
+from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent, RegistrationCompleteEvent, \
+    ProgressEvent
 from smallab.experiment_naming import DiffNamer
 from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
+from smallab.experiment_types.checkpointed_experiment import IterativeExperiment
 from smallab.experiment_types.experiment import ExperimentBase
 from smallab.file_locations import (get_save_directory, get_experiment_save_directory)
 from smallab.runner.runner_methods import run_and_save
@@ -166,9 +168,12 @@ class ExperimentRunner(object):
                 else:
                     specification_name = specification_hash(specification)
                 put_in_event_queue(eventQueue, RegisterEvent(specification_name, specification))
+                if isinstance(experiment, IterativeExperiment):
+                    put_in_event_queue(eventQueue, ProgressEvent(specification_name,0,experiment.max_iterations(specification)))
+
                 
             put_in_event_queue(eventQueue, RegistrationCompleteEvent())
-            
+
             if isinstance(specification_runner, SimpleAbstractRunner):
                 specification_runner.run(need_to_run_specifications,
                                          lambda specification: run_and_save(name, experiment, specification,

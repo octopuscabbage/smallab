@@ -1,20 +1,20 @@
 import curses
+import json
 import logging
 import math
-import multiprocessing as mp
 import time
-import json
+from os.path import join, exists
+from pathlib import Path
 
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder
-from os.path import join, exists
-from pathlib import Path
 
 from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, ProgressEvent, LogEvent,
                                                 StartExperimentEvent, RegistrationCompleteEvent,
                                                 RegisterEvent, FailedEvent)
 from smallab.file_locations import get_save_directory
+
 
 # This is a globally accessible queue which stores the events for the dashboard
 
@@ -113,7 +113,9 @@ class TimeEstimator:
             return 0, 0, 0
         elif self.first_estimate:
             self.first_estimate = False
-            return self.completion_estimate(specification_progress, active)
+            est =  self.completion_estimate(specification_progress, active)
+            if est is None:
+                return 0
         elif self.cur_calls < self.batch_size:
             self.cur_calls += 1
             return self.last_estimate
@@ -127,15 +129,15 @@ class TimeEstimator:
         # Get estimates for the registered but not running specs
         m_times, l_times, u_times = [], [], []
         for spec_id in registered:
-            if spec_id not in active + list(self.completion_dataset.keys()):
-                entry = self.spec_id_to_entry(spec_id)
-                _, num_iterations = specification_progress.get(spec_id, (None, None))
-                if num_iterations:  # Use the iteration models
-                    m_times.append(models[0].predict([entry])[0][0] * num_iterations)
-                    l_times.append(models[1].predict([entry])[0][0] * num_iterations)
-                    u_times.append(models[2].predict([entry])[0][0] * num_iterations)
-                elif models[3]:  # use the completion model if available. otherwise ignore
-                    m_times.append(models[3].predict([entry])[0][0])
+            #if spec_id not in active + list(self.completion_dataset.keys()):
+            entry = self.spec_id_to_entry(spec_id)
+            _, num_iterations = specification_progress.get(spec_id, (None, None))
+            if num_iterations:  # Use the iteration models
+                m_times.append(models[0].predict([entry])[0][0] * num_iterations)
+                l_times.append(models[1].predict([entry])[0][0] * num_iterations)
+                u_times.append(models[2].predict([entry])[0][0] * num_iterations)
+            elif models is not None and models[3]:  # use the completion model if available. otherwise ignore
+                m_times.append(models[3].predict([entry])[0][0])
 
         # Add the sum of the completion times/num threads to get the avg expected time left
         num_threads = len(active)
@@ -151,6 +153,8 @@ class TimeEstimator:
         """
         Gets the mean time remaining of all the running specifications.
         """
+        if models is None:
+            return 0,0,0
 
         # .5, .25, .75 quantile models for iteration times, and completion time model
         iter_models, c_model = (models[0], models[1], models[2]), models[3]
@@ -202,6 +206,13 @@ class TimeEstimator:
             l_ys.append([np.quantile(times, .25)])
             m_ys.append([np.quantile(times, .50)])
             u_ys.append([np.quantile(times, .75)])
+        if len(xs) == 0:
+            return None
+        # xs = np.array(xs).reshape(len(xs[0]), len(xs))
+        # l_ys = np.array(l_ys).reshape(len(l_ys[0]), len(l_ys))
+        # m_ys = np.array(m_ys).reshape(len(m_ys[0]), len(m_ys))
+        # u_ys = np.array(u_ys).reshape(len(u_ys[0]), len(u_ys))
+
         l_model = LinearRegression().fit(xs, l_ys)
         m_model = LinearRegression().fit(xs, m_ys)
         u_model = LinearRegression().fit(xs, u_ys)
@@ -236,14 +247,17 @@ class TimeEstimator:
         times = [0]
         max_time_left = 0
         for i, spec_id in enumerate(active):
-            remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
+            try:
+                remaining_iterations = specification_progress[spec_id][1] - specification_progress[spec_id][0]  # max - cur
+            except KeyError:
+                remaining_iterations = 0
             entry = self.spec_id_to_entry(spec_id)
 
             # Get the avg completion time for this spec
             temp_times = []
             for c in completions:
                 if entry == c['spec']:
-                    temp_times = c['times']
+                    temp_times = c['time']
                     break
 
             if not temp_times:
@@ -265,11 +279,14 @@ class TimeEstimator:
         NOTE: Defaults are set to "" (empty str) and 0 for encoded and numerical values, respectively.
               Might cause errors if not taken into account.
         """
-        spec, entry = self.specification_ids_to_specification[spec_id], []
+        try:
+            spec, entry = self.specification_ids_to_specification[spec_id], []
+        except KeyError as e:
+            return None
 
         for key in sorted(self.encoders.keys()):
             # Unpack encoding into entry
-            entry += [v[0] for v in self.encoders[key]["encoder"].transform([[spec.get(key, "")]]).toarray()]
+            entry += [v[0] for v in self.encoders[key]["encoder"].transform([[str(spec.get(key, ""))]]).toarray()]
 
         for key in self.keys_with_numeric_vals:
             value = spec.get(key, 0)
@@ -282,7 +299,8 @@ class TimeEstimator:
 
     def fit_encoders(self):
         for key, val in self.encoders.items():
-            self.encoders[key]["encoder"].fit(self.encoders[key]["values"])
+            logging.getLogger("smallab.dashboard").info(list(self.encoders[key]["values"]))
+            self.encoders[key]["encoder"].fit(list(self.encoders[key]["values"]))
 
     def update_possible_values(self, spec: dict):
         # NOTE: keys that have a mix of numeric objects and other objects are not handled
@@ -293,11 +311,14 @@ class TimeEstimator:
             if key_info:
                 vals = key_info["values"]
                 if value not in vals:
-                    vals.append([value])
+                    vals.append([str(value)])
+                logging.getLogger("smallab.dashboard").info(str(vals))
             elif not isinstance(value, (bool, int, float, complex)):
-                self.encoders[key] = {"encoder": OneHotEncoder(), "values": [[value], [""]]}  # handle_unknown='ignore'
+                self.encoders[key] = {"encoder": OneHotEncoder(), "values": [[str(value)],[""]]}  # handle_unknown='ignore'
             elif key not in self.keys_with_numeric_vals:
                 self.keys_with_numeric_vals.append(key)
+    def update_specification_ids(self,specification_ids_to_specifications):
+        self.specification_ids_to_specification = specification_ids_to_specifications
 
 
 intervals = (
@@ -447,8 +468,8 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
 
 
 def run(stdscr, eventQueue, name):
-    global specification_ids_to_specification
-    max_events_per_frame = 100
+    specification_ids_to_specification = dict()
+    max_events_per_frame = 1000
     max_log_spool_events = 10**3
     timeestimator = TimeEstimator(name)
     log_spool = []
@@ -469,6 +490,7 @@ def run(stdscr, eventQueue, name):
             while not eventQueue.empty() and i < max_events_per_frame:
                 i += 1
                 event = eventQueue.get()
+                logging.getLogger("smallab.dashboard").info(f"Event: {event} ")
                 if isinstance(event, BeginEvent):
                     registered.remove(event.specification_id)
                     active.append(event.specification_id)
@@ -479,6 +501,7 @@ def run(stdscr, eventQueue, name):
                     complete.append(event.specification_id)
                     timeestimator.record_completion(event.specification_id)
                 elif isinstance(event, ProgressEvent):
+                    logging.getLogger("smallab.dashboard").info(f"Progressed: {event.specification_id} ")
                     specification_progress[event.specification_id] = (event.progress, event.max)
                     timeestimator.record_iteration(event.specification_id, event.progress)
                 elif isinstance(event, LogEvent):
@@ -490,7 +513,9 @@ def run(stdscr, eventQueue, name):
                     registered.append(event.specification_id)
                     spec = dict(event.specification)
                     specification_ids_to_specification[event.specification_id] = spec
+                    timeestimator.update_specification_ids(specification_ids_to_specification)
                     timeestimator.update_possible_values(spec)
+                    logging.getLogger("smallab.dashboard").info(f"Registered: {event.specification_id} ")
                 elif isinstance(event, FailedEvent):
                     active.remove(event.specification_id)
                     failed.append(event.specification_id)
