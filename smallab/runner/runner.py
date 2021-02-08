@@ -190,6 +190,9 @@ class ExperimentRunner(object):
             if specification_runner.get_completed() != []:
                 for callback in self.callbacks:
                     callback.on_batch_complete(specification_runner.get_completed())
+        except Exception as e:
+            logger = logging.getLogger("smallab")
+            logger.error("Fatal Error",e)
         finally:
             if dashboard_process is not None:
                 dashboard_process.terminate()

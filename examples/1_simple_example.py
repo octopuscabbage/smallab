@@ -19,6 +19,7 @@ class SimpleExperiment(Experiment):
     def main(self, specification: typing.Dict) -> typing.Dict:
         random.seed(specification["seed"])
         for i in range(specification["num_calls"]):  # Advance the random number generator some amount
+
             random.random()
         #return the random number. This, along with the specification that generated it will be saved
         return {"number": random.random()}
@@ -32,8 +33,8 @@ experiment_instance = SimpleExperiment()
 
 #The experiment runner handles cloning your experiment instance and giving it a specification to run with
 runner = ExperimentRunner()
-runner.run(name,specifications,experiment_instance)
+runner.run(name,specifications,experiment_instance,use_dashboard=False)
 
 #If I run it again, nothing will happen because smallab knows those experiments succesfully completed
-runner.run(name,specifications,experiment_instance)
+runner.run(name,specifications,experiment_instance,use_dashboard=False)
 delete_experiments_folder(name)
