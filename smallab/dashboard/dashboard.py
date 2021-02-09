@@ -128,7 +128,7 @@ class TimeEstimator:
 
         # Get estimates for the registered but not running specs
         m_times, l_times, u_times = [], [], []
-        for spec_id in registered:
+        for spec_id in set(registered + active):
             #if spec_id not in active + list(self.completion_dataset.keys()):
             entry = self.spec_id_to_entry(spec_id)
             _, num_iterations = specification_progress.get(spec_id, (None, None))
