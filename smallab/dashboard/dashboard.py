@@ -42,7 +42,7 @@ class TimeEstimator:
 
         self.encoders = dict()  # feature name : dict("encoder" : OneHotEncoder, "values" : list of values)
         self.specification_ids_to_specification = dict()
-        self.keys_with_numeric_vals = []
+        # self.keys_with_numeric_vals = []
         self.first_estimate = True
 
         # Make dir and file if it doesn't exist yet
@@ -153,7 +153,7 @@ class TimeEstimator:
         """
         Gets the mean time remaining of all the running specifications.
         """
-        if models is None:
+        if models[0] is None:
             return 0,0,0
 
         # .5, .25, .75 quantile models for iteration times, and completion time model
@@ -207,7 +207,7 @@ class TimeEstimator:
             m_ys.append([np.quantile(times, .50)])
             u_ys.append([np.quantile(times, .75)])
         if len(xs) == 0:
-            return None
+            return None, None, None, self.get_completion_model()
         # xs = np.array(xs).reshape(len(xs[0]), len(xs))
         # l_ys = np.array(l_ys).reshape(len(l_ys[0]), len(l_ys))
         # m_ys = np.array(m_ys).reshape(len(m_ys[0]), len(m_ys))
@@ -227,16 +227,17 @@ class TimeEstimator:
         with open(self.save_file, "r") as f:
             contents = json.load(f)
 
+
         completions = contents.get('completions', None)
         if not completions:
             return None
 
         xs, ys = [], []
         for rec in completions:
-            xs.append(rec['spec'])
+            xs.append(np.array(rec['spec']))
             ys.append([rec['time']])
-
-        return LinearRegression().fit(xs, ys)
+        xs = np.array(xs,dtype=np.int32)
+        return LinearRegression().fit(xs,ys)
 
     def completion_estimate(self, specification_progress, active):
         """ Returns a time estimate based on previous runs, if any. """
@@ -264,7 +265,10 @@ class TimeEstimator:
                 continue
 
             # iteration time * iterations left
-            t = (np.mean(temp_times) / specification_progress[spec_id][1]) * remaining_iterations
+            if spec_id in specification_progress:
+                t = (np.mean(temp_times) / specification_progress[spec_id][1]) * remaining_iterations
+            else:
+                t = (np.mean(temp_times))
 
             # keep track of max time
             if t > max_time_left:
@@ -286,21 +290,21 @@ class TimeEstimator:
 
         for key in sorted(self.encoders.keys()):
             # Unpack encoding into entry
-            entry += [v[0] for v in self.encoders[key]["encoder"].transform([[str(spec.get(key, ""))]]).toarray()]
+            out = [v for v in self.encoders[key]["encoder"].transform([[str(spec.get(key, ""))]]).toarray()]
 
-        for key in self.keys_with_numeric_vals:
-            value = spec.get(key, 0)
-            if isinstance(value, bool):
-                entry.append(int(value))
-            else:
-                entry.append(value)
+            entry += list(out[0])
 
+        # for key in self.keys_with_numeric_vals:
+        #     value = spec.get(key, 0)
+        #     if isinstance(value, bool):
+        #         entry.append(int(value))
+        #     else:
+        #         entry.append(value)
         return entry
 
     def fit_encoders(self):
         for key, val in self.encoders.items():
-            logging.getLogger("smallab.dashboard").info(list(self.encoders[key]["values"]))
-            self.encoders[key]["encoder"].fit(list(self.encoders[key]["values"]))
+            self.encoders[key]["encoder"].fit(self.encoders[key]["values"])
 
     def update_possible_values(self, spec: dict):
         # NOTE: keys that have a mix of numeric objects and other objects are not handled
@@ -312,11 +316,11 @@ class TimeEstimator:
                 vals = key_info["values"]
                 if value not in vals:
                     vals.append([str(value)])
-                logging.getLogger("smallab.dashboard").info(str(vals))
-            elif not isinstance(value, (bool, int, float, complex)):
+            # elif not isinstance(value, (bool, int, float, complex)):
+            else:
                 self.encoders[key] = {"encoder": OneHotEncoder(), "values": [[str(value)],[""]]}  # handle_unknown='ignore'
-            elif key not in self.keys_with_numeric_vals:
-                self.keys_with_numeric_vals.append(key)
+            # elif key not in self.keys_with_numeric_vals:
+            #    self.keys_with_numeric_vals.append(key)
     def update_specification_ids(self,specification_ids_to_specifications):
         self.specification_ids_to_specification = specification_ids_to_specifications
 
@@ -490,7 +494,6 @@ def run(stdscr, eventQueue, name):
             while not eventQueue.empty() and i < max_events_per_frame:
                 i += 1
                 event = eventQueue.get()
-                logging.getLogger("smallab.dashboard").info(f"Event: {event} ")
                 if isinstance(event, BeginEvent):
                     registered.remove(event.specification_id)
                     active.append(event.specification_id)
@@ -501,7 +504,6 @@ def run(stdscr, eventQueue, name):
                     complete.append(event.specification_id)
                     timeestimator.record_completion(event.specification_id)
                 elif isinstance(event, ProgressEvent):
-                    logging.getLogger("smallab.dashboard").info(f"Progressed: {event.specification_id} ")
                     specification_progress[event.specification_id] = (event.progress, event.max)
                     timeestimator.record_iteration(event.specification_id, event.progress)
                 elif isinstance(event, LogEvent):
@@ -515,10 +517,10 @@ def run(stdscr, eventQueue, name):
                     specification_ids_to_specification[event.specification_id] = spec
                     timeestimator.update_specification_ids(specification_ids_to_specification)
                     timeestimator.update_possible_values(spec)
-                    logging.getLogger("smallab.dashboard").info(f"Registered: {event.specification_id} ")
                 elif isinstance(event, FailedEvent):
                     active.remove(event.specification_id)
                     failed.append(event.specification_id)
+
                 elif isinstance(event, RegistrationCompleteEvent):
                     timeestimator.fit_encoders()
                 else:
