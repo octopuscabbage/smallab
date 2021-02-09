@@ -7,7 +7,7 @@ from os.path import join, exists
 from pathlib import Path
 
 import numpy as np
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge
 from sklearn.preprocessing import OneHotEncoder
 
 from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, ProgressEvent, LogEvent,
@@ -213,9 +213,9 @@ class TimeEstimator:
         # m_ys = np.array(m_ys).reshape(len(m_ys[0]), len(m_ys))
         # u_ys = np.array(u_ys).reshape(len(u_ys[0]), len(u_ys))
 
-        l_model = LinearRegression().fit(xs, l_ys)
-        m_model = LinearRegression().fit(xs, m_ys)
-        u_model = LinearRegression().fit(xs, u_ys)
+        l_model = Ridge().fit(xs, l_ys)
+        m_model = Ridge().fit(xs, m_ys)
+        u_model = Ridge().fit(xs, u_ys)
 
         return m_model, l_model, u_model, self.get_completion_model()
 
@@ -237,7 +237,7 @@ class TimeEstimator:
             xs.append(np.array(rec['spec']))
             ys.append([rec['time']])
         xs = np.array(xs,dtype=np.int32)
-        return LinearRegression().fit(xs,ys)
+        return Ridge().fit(xs,ys)
 
     def completion_estimate(self, specification_progress, active):
         """ Returns a time estimate based on previous runs, if any. """
