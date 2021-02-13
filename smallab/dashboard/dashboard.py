@@ -376,7 +376,7 @@ def draw_header_widget(row, stdscr, experiment_name, width, complete, active, re
 
 
 def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height, failed,
-                               specification_id_to_specification, specification_readout_index):
+                               specification_id_to_specification, specification_readout_index, use_diff_namer):
     start_row = row
     # Decide to draw in single or double column
     second_column_begins = math.floor(width / 2)
@@ -389,10 +389,10 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
         max_specification_length = 0
     for i, active_specification in enumerate(active + registered + failed):
         if use_double_column_layout and on_second_column:
-            stdscr.addstr(row, second_column_begins, active_specification)
+            stdscr.addstr(row, second_column_begins, active_specification[:max_specification_length])
             specification_readout_start_index = second_column_begins + max_specification_length
         else:
-            stdscr.addstr(row, 0, active_specification)
+            stdscr.addstr(row, 0, active_specification[:max_specification_length])
             specification_readout_start_index = max_specification_length
         if use_double_column_layout:
             bar_width = math.floor(width / 8)
@@ -423,24 +423,25 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
             stdscr.addstr(row, width - len(status_string), status_string)
             specification_readout_end_index = width - len(status_string)
 
-        specification = str(specification_id_to_specification[active_specification])
-        specification_string_start_index = specification_readout_index % len(specification)
-        max_allowed_length = specification_readout_end_index - specification_readout_start_index - 1
-        if len(specification) <= max_allowed_length:
-            stdscr.addstr(row, specification_readout_start_index,
-                          specification)
-        else:
-            overflow = specification_string_start_index + max_allowed_length - len(specification) - 1
-            if overflow > 0:
+        if not use_diff_namer:
+            specification = str(specification_id_to_specification[active_specification])
+            specification_string_start_index = specification_readout_index % len(specification)
+            max_allowed_length = specification_readout_end_index - specification_readout_start_index - 1
+            if len(specification) <= max_allowed_length:
                 stdscr.addstr(row, specification_readout_start_index,
-                              specification[
-                              specification_string_start_index:specification_string_start_index + max_allowed_length] + " " + specification[
-                                                                                                                              :overflow])
-
+                              specification)
             else:
-                stdscr.addstr(row, specification_readout_start_index,
-                              specification[
-                              specification_string_start_index:specification_string_start_index + max_allowed_length])
+                overflow = specification_string_start_index + max_allowed_length - len(specification) - 1
+                if overflow > 0:
+                    stdscr.addstr(row, specification_readout_start_index,
+                                  specification[
+                                  specification_string_start_index:specification_string_start_index + max_allowed_length] + " " + specification[
+                                                                                                                                  :overflow])
+
+                else:
+                    stdscr.addstr(row, specification_readout_start_index,
+                                  specification[
+                                  specification_string_start_index:specification_string_start_index + max_allowed_length])
         row += 1
         if row >= max_height:
             if use_double_column_layout and not on_second_column:
@@ -471,7 +472,7 @@ def draw_log_widget(row, stdscr, width, height, log_spool):
     return row
 
 
-def run(stdscr, eventQueue, name):
+def run(stdscr, eventQueue, name,use_diff_namer):
     specification_ids_to_specification = dict()
     max_events_per_frame = 1000
     max_log_spool_events = 10**3
@@ -536,7 +537,7 @@ def run(stdscr, eventQueue, name):
             row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
                                      specification_progress, timeestimator, failed, in_slow_mode=in_slow_mode)
             row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,
-                                             failed, specification_ids_to_specification, specification_readout_index)
+                                             failed, specification_ids_to_specification, specification_readout_index,use_diff_namer)
             row = draw_log_widget(row, stdscr, width, height, log_spool)
             stdscr.refresh()
             time.sleep(0.1)
@@ -545,6 +546,6 @@ def run(stdscr, eventQueue, name):
             logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
 
 
-def start_dashboard(eventQueue, name):
-    curses.wrapper(run, eventQueue, name)
+def start_dashboard(eventQueue, name, use_diff_namer):
+    curses.wrapper(run, eventQueue, name,use_diff_namer)
 
