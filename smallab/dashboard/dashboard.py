@@ -88,7 +88,9 @@ class TimeEstimator:
             completions = contents.setdefault('completions', [])
 
         # Add completion time to dataset
-        spec_entry = self.spec_id_to_entry(specification)
+        #spec_entry = self.spec_id_to_entry(specification)
+
+        spec_entry = self.specification_ids_to_specification[specification]
         found = False
         for rec in completions:
             if rec['spec'] == spec_entry:
@@ -234,7 +236,7 @@ class TimeEstimator:
 
         xs, ys = [], []
         for rec in completions:
-            xs.append(np.array(rec['spec']))
+            xs.append(np.array(self.specification_to_entry(rec['spec'])))
             ys.append([rec['time']])
         xs = np.array(xs,dtype=np.int32)
         return Ridge().fit(xs,ys)
@@ -287,7 +289,11 @@ class TimeEstimator:
             spec, entry = self.specification_ids_to_specification[spec_id], []
         except KeyError as e:
             return None
+        return self.specification_to_entry(spec,entry)
 
+    def specification_to_entry(self, spec, entry=None):
+        if entry is None:
+            entry= []
         for key in sorted(self.encoders.keys()):
             # Unpack encoding into entry
             out = [v for v in self.encoders[key]["encoder"].transform([[str(spec.get(key, ""))]]).toarray()]
