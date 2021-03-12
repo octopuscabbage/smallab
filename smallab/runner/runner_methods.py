@@ -81,7 +81,8 @@ def run_and_save(name, experiment, specification, propagate_exceptions, callback
         result = run_with_correct_handler(experiment, name, specification,eventQueue, diff_namer=diff_namer)
         if isinstance(result, types.GeneratorType):
             for cur_result in result:
-                diff_namer.extend_name(cur_result["specification"])
+                if diff_namer is not None:
+                    diff_namer.extend_name(cur_result["specification"])
                 save_run(name, experiment, cur_result["specification"], cur_result["result"], force_pickle,diff_namer=diff_namer, extended_keys=True)
         else:
             save_run(name, experiment, specification, result, force_pickle,diff_namer=diff_namer)
