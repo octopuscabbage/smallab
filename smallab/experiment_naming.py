@@ -34,7 +34,9 @@ class DiffNamer():
     def __gen_name(self, keys, specification):
         name = []
         for key in keys:
-            name.append(str(key) + ":" + str(specification[key]))
+            sanitized_key = ''.join(e for e in str(key) if e.isalnum())
+            santized_value = ''.join(e for e in str(specification[key]) if e.isalnum())
+            name.append(sanitized_key + ":" + santized_value)
         name = "_".join(name)
         if len(
                 name) >= 250:  # This is the maximum file length for windows and unix, doesn't take into account full path length
