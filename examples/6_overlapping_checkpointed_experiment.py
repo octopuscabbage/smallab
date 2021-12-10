@@ -8,6 +8,7 @@ from numpy.random.mtrand import RandomState
 from examples.example_utils import delete_experiments_folder
 from smallab.experiment_types.overlapping_output_experiment import OverlappingOutputCheckpointedExperiment, \
     OverlappingOutputCheckpointedExperimentReturnValue
+from smallab.name_helper.dict import dict2name
 from smallab.runner.runner import ExperimentRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.smallab_types import Specification
@@ -35,35 +36,37 @@ class SimpleExperiment(OverlappingOutputCheckpointedExperiment):
         # Since it's checkpointed, it will likely succeed after running it again
         # if random.randint(0,100) > 90:
         #     raise Exception("Something bad happened, a moth flew into the computer!")
-        if self.i in self.num_calls:
-            should_continue = self.i != self.num_calls[-1]
-            specification = deepcopy(self.specification)
-            specification["num_calls"] = self.i
-            result = {"r": self.r}
-            progress = self.i
-            max_iterations = self.num_calls
-            return OverlappingOutputCheckpointedExperimentReturnValue(should_continue, specification, result, progress,
-                                                                      max_iterations)
-        else:
-            # This experiment isn't done, return the progress as a tuple to update the dashboard
-            return (self.i, self.num_calls)
+        should_continue = self.i != self.num_calls
+        specification = deepcopy(self.specification)
+        specification["num_calls"] = self.i
+        result = {"r": self.r}
+        progress = self.i
+        max_iterations = self.num_calls
+        return OverlappingOutputCheckpointedExperimentReturnValue(should_continue, specification, result, progress,
+                                                                  max_iterations)
     #Tells the dashboard how many iterations this experiment will run for
     def max_iterations(self,specification):
         return specification["num_calls"]
 
+    def get_name(self,specification):
+        return dict2name(specification)
+    def get_current_name(self,specification):
+        cur_specification = deepcopy(specification)
+        cur_specification["idx"] = self.i
+        return dict2name(cur_specification)
 
 # Same specification as before
-generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": (10, 20, 30)}
+generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": 30}
 specifications = SpecificationGenerator().generate(generation_specification)
 
 name = "overlapping_checkpointed_run"
 # This time we will run them all in parallel
 runner = ExperimentRunner()
-runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=False,
+runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=True,
            propagate_exceptions=True)
 
 # Some of our experiments may have failed, let's call run again to hopefully solve that
-runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=False,
+runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=True,
            propagate_exceptions=True)
 
 # Cleanup example

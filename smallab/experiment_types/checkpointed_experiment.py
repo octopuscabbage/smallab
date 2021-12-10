@@ -23,6 +23,10 @@ class IterativeExperiment(abc.ABC):
     def max_iterations(self,specification):
         pass
 
+    @abc.abstractmethod
+    def get_current_name(self, specification):
+        pass
+
 class CheckpointedExperiment(ExperimentBase, HasCheckpoint, IterativeExperiment):
     """
     CheckpointedExperiment is an Experiment which can be stopped and restarted.

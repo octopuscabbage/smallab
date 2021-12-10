@@ -7,6 +7,7 @@ import typing
 import random
 
 from smallab.experiment_types.experiment import Experiment
+from smallab.name_helper.dict import dict2name
 from smallab.runner.runner import ExperimentRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.specification_generator import SpecificationGenerator
@@ -22,6 +23,9 @@ class SimpleExperiment(Experiment):
             r = random.random()
         time.sleep(10 * r)
         return {"number": r}
+
+    def get_name(self, specification):
+        return dict2name(specification)
 
 
 #Same specification as before

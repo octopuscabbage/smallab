@@ -10,7 +10,6 @@ from smallab.callbacks import CallbackManager
 from smallab.dashboard.dashboard import start_dashboard
 from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent, RegistrationCompleteEvent, \
     ProgressEvent
-from smallab.experiment_naming import DiffNamer
 from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
 from smallab.experiment_types.checkpointed_experiment import IterativeExperiment
 from smallab.experiment_types.experiment import ExperimentBase
@@ -20,7 +19,6 @@ from smallab.runner_implementations.abstract_runner import SimpleAbstractRunner,
 from smallab.runner_implementations.joblib_runner import JoblibRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.smallab_types import Specification
-from smallab.specification_hashing import specification_hash
 from smallab.utilities.logging_callback import LoggingCallback
 
 
@@ -91,7 +89,7 @@ class ExperimentRunner(object):
     def run(self, name: typing.AnyStr, specifications: typing.List[Specification], experiment: ExperimentBase,
             continue_from_last_run=True, propagate_exceptions=False,
             force_pickle=False, specification_runner: SimpleAbstractRunner = MultiprocessingRunner(),
-            use_dashboard=True, context_type="fork", multiprocessing_lib=None, use_diff_namer=True) -> typing.NoReturn:
+            use_dashboard=True, context_type="fork", multiprocessing_lib=None) -> typing.NoReturn:
 
         """
         The method called to run an experiment
@@ -106,11 +104,7 @@ class ExperimentRunner(object):
         :param use_dashboard: If true, use the terminal monitoring dashboard. If false, just stream logs to stdout.
         :return: No return
         """
-        if use_diff_namer:
-            diff_namer = DiffNamer(specifications)
-        else:
-            diff_namer = None
-        self.diff_namer = diff_namer
+
         if multiprocessing_lib is None:
             import multiprocessing as mp
         else:
@@ -147,7 +141,7 @@ class ExperimentRunner(object):
                 #sh = logging.StreamHandler(fq)
                 #sh.setFormatter(formatter)
                 #logging.getLogger("smallab").addHandler(sh)
-                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue, name,use_diff_namer))
+                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue, name))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
 
@@ -163,10 +157,7 @@ class ExperimentRunner(object):
                 callback.set_experiment_name(name)
 
             for specification in need_to_run_specifications:
-                if diff_namer is not None:
-                    specification_name = diff_namer.get_name(specification)
-                else:
-                    specification_name = specification_hash(specification)
+                specification_name = experiment.get_name(specification)
                 put_in_event_queue(eventQueue, RegisterEvent(specification_name, specification))
                 if isinstance(experiment, IterativeExperiment):
                     put_in_event_queue(eventQueue, ProgressEvent(specification_name,0,experiment.max_iterations(specification)))
@@ -178,10 +169,10 @@ class ExperimentRunner(object):
                 specification_runner.run(need_to_run_specifications,
                                          lambda specification: run_and_save(name, experiment, specification,
                                                                             propagate_exceptions, self.callbacks,
-                                                                            self.force_pickle, eventQueue, diff_namer))
+                                                                            self.force_pickle, eventQueue))
             elif isinstance(specification_runner, ComplexAbstractRunner):
                 specification_runner.run(need_to_run_specifications, name, experiment, propagate_exceptions,
-                                         self.callbacks, self.force_pickle, eventQueue, diff_namer)
+                                         self.callbacks, self.force_pickle, eventQueue)
 
             self._write_to_completed_json(name, specification_runner.get_completed(),
                                           specification_runner.get_failed_specifications())

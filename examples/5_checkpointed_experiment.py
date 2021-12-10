@@ -3,11 +3,13 @@
 #Note: Checkpointing does have some overhead so if the experiment is very fast consider not using this
 import logging
 import random
+from copy import deepcopy
 
 from numpy.random.mtrand import RandomState
 
 from examples.example_utils import delete_experiments_folder
 from smallab.experiment_types.checkpointed_experiment import CheckpointedExperiment
+from smallab.name_helper.dict import dict2name
 from smallab.runner.runner import ExperimentRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.smallab_types import Specification
@@ -35,8 +37,8 @@ class SimpleExperiment(CheckpointedExperiment):
             # time.sleep(int(.5 * self.r))
         #this experiment can have a random transient failure!
         #Since it's checkpointed, it will likely succeed after running it again
-        if random.randint(0,100) > 90:
-            raise Exception("Something bad happened, a moth flew into the computer!")
+        #if random.randint(0,100) > 90:
+            #raise Exception("Something bad happened, a moth flew into the computer!")
         if self.i >= self.num_calls:
             #Done with the experiment, return the results dictionary like normal
             return {"number": self.r}
@@ -48,6 +50,14 @@ class SimpleExperiment(CheckpointedExperiment):
     def max_iterations(self, specification):
         return specification["num_calls"]
 
+    def get_name(self, specification):
+        return dict2name(specification)
+
+    def get_current_name(self, specification):
+        specification_with_idx = deepcopy(specification)
+        specification_with_idx["idx"] = self.i
+        return dict2name(specification_with_idx)
+
 
 #Same specification as before
 generation_specification = {"seed": [1, 2, 3, 4, 5, 6, 7, 8], "num_calls": [100, 200, 300]}
@@ -56,7 +66,7 @@ specifications = SpecificationGenerator().generate(generation_specification)
 name = "checkpointed_run"
 #This time we will run them all in parallel
 runner = ExperimentRunner()
-runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())
+runner.run(name, specifications, SimpleExperiment(),use_dashboard=False)
 
 #Some of our experiments may have failed, let's call run again to hopefully solve that
 runner.run(name, specifications, SimpleExperiment(),specification_runner=MultiprocessingRunner())

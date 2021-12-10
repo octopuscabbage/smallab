@@ -98,7 +98,7 @@ class TestInProgressSerialization(unittest.TestCase):
         runner = ExperimentRunner()
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
-        self.assertEqual(1, len(os.listdir(get_save_file_directory('test', specification,runner.diff_namer))))
+        self.assertEqual(1, len(os.listdir(get_save_file_directory('test', specification, False))))
 
     def test_checkpoint_handler_rotates_checkpoints_properly(self):
         experiment = SerializableExperimentFailsAfter4Steps()
@@ -114,12 +114,12 @@ class TestInProgressSerialization(unittest.TestCase):
         runner = ExperimentRunner()
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
-        self.assertEqual(0, len(os.listdir(get_save_file_directory('test', specification, runner.diff_namer))))
+        self.assertEqual(0, len(os.listdir(get_save_file_directory('test', specification, False))))
 
     def test_pickle_serializable_experiment_success(self):
         experiment = PickleOnlySerializableExeperiment()
         runner = ExperimentRunner()
         specification = {"test": "test"}
         runner.run("test", [specification], experiment, specification_runner=MainRunner())
-        self.assertIn("run.pkl", os.listdir(get_save_file_directory('test', specification, runner.diff_namer)))
-        self.assertIn("specification.json", os.listdir(get_save_file_directory('test', specification, runner.diff_namer)))
+        self.assertIn("run.pkl", os.listdir(get_save_file_directory('test', specification, False)))
+        self.assertIn("specification.json", os.listdir(get_save_file_directory('test', specification, False)))

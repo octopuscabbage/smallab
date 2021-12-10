@@ -70,5 +70,5 @@ class ComplexAbstractRunner(BaseAbstractRunner):
     def run(self, specifications_to_run: typing.List[Specification], experiment_name: typing.AnyStr,
             experiment: ExperimentBase,
             propagate_exceptions: bool, callbacks: typing.List[CallbackManager],
-            force_pickle: bool, eventQueue, namer):
+            force_pickle: bool, eventQueue):
         pass

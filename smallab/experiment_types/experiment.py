@@ -7,6 +7,11 @@ from smallab.smallab_types import Specification
 
 
 class ExperimentBase(abc.ABC):
+
+    @abc.abstractmethod
+    def get_name(self, specification):
+        pass
+
     def set_experiment_local_storage(self,experiment_local_storage_folder):
         """
         Called by ExperimentRunner to set up a folder for saving temporary data to file during an experiment, such as model weights

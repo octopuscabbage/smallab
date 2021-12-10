@@ -9,6 +9,7 @@ from smallab.experiment_types.experiment import Experiment
 
 
 #This is another simple experiment, this time with logging involved!
+from smallab.name_helper.dict import dict2name
 from smallab.runner.runner import ExperimentRunner
 
 
@@ -21,10 +22,12 @@ class SimpleExperiment(Experiment):
             logging.getLogger(self.get_logger_name()).info("...")
             random.random()
         return {"number": random.random()}
+    def get_name(self,specification):
+        return dict2name(specification)
 
 
 name = "simple_experiment2"
 runner = ExperimentRunner()
-runner.run(name,[{"seed":1,"num_calls":1},{"seed":2,"num_calls":2}],SimpleExperiment())
+runner.run(name, [{"seed": 1, "num_calls": 1}, {"seed": 2, "num_calls": 2}], SimpleExperiment(), use_dashboard=False)
 
 delete_experiments_folder(name)

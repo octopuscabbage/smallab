@@ -10,6 +10,7 @@ from smallab.experiment_types.experiment import Experiment
 
 
 # Write a simple experiment
+from smallab.name_helper.dict import dict2name
 from smallab.runner.runner import ExperimentRunner
 
 
@@ -23,6 +24,9 @@ class SimpleExperiment(Experiment):
             random.random()
         #return the random number. This, along with the specification that generated it will be saved
         return {"number": random.random()}
+
+    def get_name(self, specification):
+        return dict2name(specification)
 
 #The name describes what experiment your doing
 name = "simple_experiment1"

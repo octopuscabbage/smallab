@@ -6,7 +6,6 @@ import dill
 
 from smallab.runner_implementations.abstract_runner import SimpleAbstractRunner
 from smallab.smallab_types import Specification
-from smallab.specification_hashing import specification_hash
 
 
 def run_dill_encoded(payload):

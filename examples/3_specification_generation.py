@@ -6,6 +6,7 @@ import random
 
 from examples.example_utils import delete_experiments_folder
 from smallab.experiment_types.experiment import Experiment
+from smallab.name_helper.dict import dict2name
 from smallab.runner.runner import ExperimentRunner
 from smallab.runner_implementations.multiprocessing_runner import MultiprocessingRunner
 from smallab.specification_generator import SpecificationGenerator
@@ -19,6 +20,8 @@ class SimpleExperiment(Experiment):
             logging.getLogger(self.get_logger_name()).info("...")
             random.random()
         return {"number": random.random()}
+    def get_name(self,specification):
+        return dict2name(specification)
 
 
 # In the generation specification keys that have lists as their values will be cross producted with other list valued keys to create many specifications
@@ -31,6 +34,6 @@ print(specifications)
 
 name = "specification_generation_experiment"
 runner = ExperimentRunner()
-runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(),use_dashboard=False,use_diff_namer=False)
+runner.run(name, specifications, SimpleExperiment(), specification_runner=MultiprocessingRunner(), use_dashboard=True)
 
 delete_experiments_folder(name)
