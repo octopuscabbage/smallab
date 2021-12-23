@@ -70,7 +70,7 @@ class CheckpointedExperimentHandler(BaseHandler):
         location = get_partial_save_directory(name, specification,experiment)
         checkpoints = self._get_time_sorted_checkpoints(name, specification,experiment)
         if checkpoints == []:
-            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).info("No checkpoints available")
+            logging.getLogger(experiment.get_logger_name()).info("No checkpoints available")
             return
         # checkpoints = reversed(checkpoints)
         able_to_load_checkpoint = False
@@ -84,14 +84,14 @@ class CheckpointedExperimentHandler(BaseHandler):
                     used_checkpoint = checkpoint
                     break
             except:
-                logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).warning(
+                logging.getLogger(experiment.get_logger_name()).warning(
                     "Unable to load checkpoint {chp}".format(chp=checkpoint), exc_info=True)
         if not able_to_load_checkpoint:
-            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).warning(
+            logging.getLogger(experiment.get_logger_name()).warning(
                 "All checkpoints corrupt".format(id=specification_id))
             return
         else:
-            logging.getLogger("smallab.{id}.checkpoint".format(id=specification_id)).info(
+            logging.getLogger(experiment.get_logger_name()).info(
                 "Successfully loaded checkpoint {chp}".format(chp=used_checkpoint))
         return partial_experiment
 
@@ -121,18 +121,20 @@ class CheckpointedExperimentHandler(BaseHandler):
             experiment_name = experiment.get_name(specification)
             checkpoint_name = str(datetime.datetime.now())
             try:
+                start_checkpoint_time = time.time()
                 location = get_partial_save_directory(name, specification,experiment)
                 os.makedirs(location, exist_ok=True)
                 # TODO make sure a checkpoint with this name doesn't already exist
                 with open(os.path.join(location, checkpoint_name + ".pkl"), "wb") as f:
                     dill.dump(save_data, f)
-                logging.getLogger("smallab.{id}.checkpoint".format(id=experiment_name)).info(
-                    "Succesfully checkpointed {chp}".format(chp=checkpoint_name))
+                checkpointing_time = time.time() - start_checkpoint_time
+                logging.getLogger(experiment.get_logger_name()).info(
+                    "Succesfully checkpointed {chp} in {dt}s".format(chp=checkpoint_name,dt=round(checkpointing_time,2)))
                 checkpoints = os.listdir(location)
                 if len(checkpoints) > self.rolled_backups:
                     checkpoints = self._get_time_sorted_checkpoints(name, specification,experiment)
                     os.remove(os.path.join(location, str(checkpoints[0]) + ".pkl"))
             except:
-                logging.getLogger("smallab.{id}.checkpoint".format(id=experiment_name)).warning(
+                logging.getLogger(experiment.get_logger_name()).warning(
                     "Unsuccesful checkpoint {chp}".format(chp=checkpoint_name),
                     exc_info=True)
