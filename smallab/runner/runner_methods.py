@@ -1,5 +1,6 @@
 import json
 import logging
+import shutil
 
 import dill
 import os
@@ -91,8 +92,10 @@ def run_and_save(name, experiment, specification, propagate_exceptions, callback
 
             put_in_event_queue(eventQueue,CompleteEvent(specification_id))
         except Exception as e:
-            logger.error("Specification Failure", exc_info=True)
+            logging.getLogger(experiment.get_logger_name()).error("Specification Failure", exc_info=True)
             put_in_event_queue(eventQueue,FailedEvent(specification_id))
+            on_failure(experiment,specification_id)
+
             for callback in callbacks:
                 callback.on_specification_failure(e, specification)
             return e
@@ -100,4 +103,10 @@ def run_and_save(name, experiment, specification, propagate_exceptions, callback
         _interior_fn()
         put_in_event_queue(eventQueue,CompleteEvent(specification_id))
         return None
+
+def on_failure( experiment, specification_identity):
+    log_file_location = get_log_file(experiment,specification_identity)
+    failed_log_file_location = log_file_location.replace("logs","failed")
+    os.makedirs(os.path.dirname(failed_log_file_location),exist_ok=True)
+    shutil.copyfile(log_file_location,failed_log_file_location)
 

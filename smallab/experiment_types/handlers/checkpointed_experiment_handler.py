@@ -1,5 +1,6 @@
 import datetime
 import logging
+import time
 import typing
 
 import dill
@@ -27,8 +28,11 @@ class CheckpointedExperimentHandler(BaseHandler):
         """
         self.eventQueue = eventQueue
         self.rolled_backups = rolled_backups
+        self.filtered_delta = None
+
 
     def run(self, experiment: CheckpointedExperiment, name: typing.AnyStr, specification: Specification):
+        self.last_timer = time.time()
         loaded_experiment = self.load_most_recent(experiment,name, specification)
         if loaded_experiment is None:
             experiment.initialize(specification)
@@ -48,6 +52,18 @@ class CheckpointedExperimentHandler(BaseHandler):
             name = experiment.get_name(specification)
             put_in_event_queue(self.eventQueue, ProgressEvent(name, result[0], result[1]))
 
+            cur_time = time.time()
+            delta = cur_time - self.last_timer
+            #Simple low pass filter
+            if self.filtered_delta is None:
+                self.filtered_delta = delta
+            else:
+                self.filtered_delta = self.filtered_delta + .9 * (delta - self.filtered_delta)
+            self.last_timer = cur_time
+            reamining_iterations = result[1] - result[0]
+            remaining_time = reamining_iterations * self.filtered_delta
+
+            logging.getLogger(experiment.get_logger_name()).info(f"Update: {result[0]} / {result[1]} Est {round(remaining_time,2)}s")
 
     def load_most_recent(self, experiment:ExperimentBase, name, specification):
         specification_id = experiment.get_name(specification)

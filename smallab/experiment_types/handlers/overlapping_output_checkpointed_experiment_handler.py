@@ -1,3 +1,5 @@
+import logging
+import time
 import typing
 
 from smallab.experiment_types.handlers.base_handler import BaseHandler
@@ -22,6 +24,7 @@ class OverlappingOutputCheckpointedExperimentHandler(BaseHandler):
         else:
             experiment = loaded_value[0]
             results_list = loaded_value[1]
+        self.checkpointed_experiment_handler.last_timer = time.time()
         result = experiment.step()
         if isinstance(result, OverlappingOutputCheckpointedExperimentReturnValue):
             self.checkpointed_experiment_handler.publish_progress(experiment,specification,

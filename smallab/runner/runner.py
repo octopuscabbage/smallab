@@ -137,10 +137,6 @@ class ExperimentRunner(object):
                 sh.setFormatter(formatter)
                 logger.addHandler(sh)
             else:
-                #fq = LogToEventQueue(eventQueue)
-                #sh = logging.StreamHandler(fq)
-                #sh.setFormatter(formatter)
-                #logging.getLogger("smallab").addHandler(sh)
                 dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue, name))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
@@ -160,9 +156,9 @@ class ExperimentRunner(object):
                 specification_name = experiment.get_name(specification)
                 put_in_event_queue(eventQueue, RegisterEvent(specification_name, specification))
                 if isinstance(experiment, IterativeExperiment):
-                    put_in_event_queue(eventQueue, ProgressEvent(specification_name,0,experiment.max_iterations(specification)))
+                    put_in_event_queue(eventQueue,
+                                       ProgressEvent(specification_name, 0, experiment.max_iterations(specification)))
 
-                
             put_in_event_queue(eventQueue, RegistrationCompleteEvent())
 
             if isinstance(specification_runner, SimpleAbstractRunner):
@@ -188,7 +184,7 @@ class ExperimentRunner(object):
                     callback.on_batch_complete(specification_runner.get_completed())
         except Exception as e:
             logger = logging.getLogger("smallab")
-            logger.error("Fatal Error",e)
+            logger.error("Fatal Error", exc_info=True)
         finally:
             if dashboard_process is not None:
                 dashboard_process.terminate()

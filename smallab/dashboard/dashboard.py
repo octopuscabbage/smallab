@@ -1,4 +1,8 @@
-import curses
+
+try:
+    import curses
+except ModuleNotFoundError:
+    print("Curses not found on your system, Try running without dashboard")
 import json
 import logging
 import math
