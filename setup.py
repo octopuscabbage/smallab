@@ -19,7 +19,7 @@ required = [
 
 setup(
     name="smallab",
-    version="2.1.0",
+    version="2.2.0",
     url='https://github.com/octopuscabbage/smallab',
     packages=find_packages(),
     install_requires=required,
@@ -28,4 +28,10 @@ setup(
                 "to be easy to use with your experiment",
     long_description=read('README.md'),
     long_description_content_type='text/markdown',
+)
+setup(
+    name='smdash',
+    version='1.0',
+    packages=find_packages(),
+    scripts=['scripts/smdash.py'],
 )

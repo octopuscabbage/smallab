@@ -7,7 +7,7 @@ import dill
 import os
 
 from smallab.callbacks import CallbackManager
-from smallab.dashboard.dashboard import start_dashboard
+from smallab.dashboard.dashboard import start_dashboard, write_dashboard
 from smallab.dashboard.dashboard_events import StartExperimentEvent, RegisterEvent, RegistrationCompleteEvent, \
     ProgressEvent
 from smallab.dashboard.utils import put_in_event_queue, LogToEventQueue
@@ -137,7 +137,7 @@ class ExperimentRunner(object):
                 sh.setFormatter(formatter)
                 logger.addHandler(sh)
             else:
-                dashboard_process = ctx.Process(target=start_dashboard, args=(eventQueue, name))
+                dashboard_process = ctx.Process(target=write_dashboard, args=(eventQueue,name))
                 dashboard_process.start()
             experiment.set_logging_folder(folder_loc)
 

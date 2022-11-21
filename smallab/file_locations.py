@@ -78,3 +78,9 @@ def get_experiment_local_storage(name):
 def get_specification_local_storage(name, specification, experiment: ExperimentBase):
     expr_name = experiment.get_name(specification)
     return os.path.join(get_experiment_local_storage(name),expr_name)
+
+def get_dashboard_file(name):
+    return os.path.join(get_save_directory(name), ".dashboard.csv")
+
+def get_specification_save_dir(name):
+    return os.path.join(get_save_directory(name), "specifications")

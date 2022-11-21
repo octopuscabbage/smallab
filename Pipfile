@@ -11,9 +11,7 @@ numpy = "*"
 tqdm = "*"
 joblib = "*"
 humanhash3 = "*"
-dill = "*"
+dill = ">=0.3.6"
 scikit-learn="*"
 python-dateutil = "*"
 
-[requires]
-python_version = "3.6"
