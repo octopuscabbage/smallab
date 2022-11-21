@@ -20,6 +20,7 @@ from smallab.dashboard.dashboard_events import (BeginEvent, CompleteEvent, Progr
                                                 RegisterEvent, FailedEvent)
 from smallab.file_locations import get_dashboard_file, get_specification_save_dir, get_save_directory
 
+import sys
 
 # This is a globally accessible queue which stores the events for the dashboard
 
@@ -644,3 +645,7 @@ def write_dashboard(eventQueue,name):
                 else:
                     print("Dashboard action not understood")
         time.sleep(0.2)
+
+def run_dash_from_command_line():
+    experiment_name = sys.argv[1]
+    start_dashboard(experiment_name)

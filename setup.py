@@ -28,10 +28,10 @@ setup(
                 "to be easy to use with your experiment",
     long_description=read('README.md'),
     long_description_content_type='text/markdown',
+    entry_points={
+        'console_scripts': [
+            'smdash=smallab.dashboard.dashboard:run_dash_from_command_line',
+    ],
+    },
 )
-setup(
-    name='smdash',
-    version='1.0',
-    packages=find_packages(),
-    scripts=['scripts/smdash.py'],
-)
+
