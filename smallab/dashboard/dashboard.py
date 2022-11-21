@@ -540,10 +540,17 @@ def run(stdscr, name):
     start_time = time.time()
     specification_readout_index = 0
     i = 0
+    j = 0
     while True:
+        j+=1
         if time.time() - start_time > 1:
             specification_readout_index += 1
-        # Drain Queue:
+        if not os.path.exists(get_dashboard_file(name)):
+            stdscr.clear()
+            stdscr.addstr(0,0,f"Waiting for dashboard file for {name} " + "." * ((j % 3) + 1))
+            time.sleep(2.0)
+            stdscr.refresh()
+            continue
         try:
             with open(get_dashboard_file(name),"r") as f:
                 lines = f.readlines()
@@ -552,8 +559,11 @@ def run(stdscr, name):
                     key = split[0]
                     if key == 'BEGIN':
                         specification_id = split[1].replace("\n","")
-                        start_time = float(split[2])
-                        registered.remove(specification_id)
+                       
+                        try:
+                            registered.remove(specification_id)
+                        except:
+                            pass
                         active.append(specification_id)
                     elif key == 'COMPLETE':
                         specification_id = split[1].replace("\n","")
@@ -585,9 +595,10 @@ def run(stdscr, name):
                     elif key == "REGISTRATION_COMPLETE":
                         pass
                     elif key == "START":
+                        start_time = float(split[2])
                         timeestimator.record_start_time(start_time)
-                    else:
-                        print(f"Dashboard action not understood: {split}")
+                    # else:
+                    #     print(f"Dashboard action not understood: {split}")
             i = len(lines)
             in_slow_mode = False
             if i == max_events_per_frame:
@@ -603,7 +614,7 @@ def run(stdscr, name):
                                              failed, specification_ids_to_specification, specification_readout_index)
             #row = draw_log_widget(row, stdscr, width, height, log_spool)
             stdscr.refresh()
-            time.sleep(0.1)
+            time.sleep(2.0)
             log_spool = log_spool[-max_log_spool_events:]
         except Exception as e:
             logging.getLogger("smallab.dashboard").error("Dashboard Error {}".format(e), exc_info=True)
@@ -623,7 +634,7 @@ def write_dashboard(eventQueue,name):
             while not eventQueue.empty():
                 event = eventQueue.get()
                 if isinstance(event, BeginEvent):
-                    f.write(f"BEGIN,{event.specification_id},{time.time()}\n")
+                    f.write(f"BEGIN,{event.specification_id}\n")
                 elif isinstance(event, CompleteEvent):
                     f.write(f"COMPLETE,{event.specification_id}\n" )
                 elif isinstance(event, ProgressEvent):
@@ -632,7 +643,7 @@ def write_dashboard(eventQueue,name):
                     #f.write(f"LOG,{event.message}")
                     pass
                 elif isinstance(event, StartExperimentEvent):
-                     f.write(f"START,{event.name}\n")
+                     f.write(f"START,{event.name},{time.time()}\n")
                 elif isinstance(event, RegisterEvent):
                     # with open(os.path.join(get_specification_save_dir(name), event.specification_id + ".json"),"w") as j_f:
                     #     json.dump(event.specification,j_f)
