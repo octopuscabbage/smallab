@@ -361,10 +361,10 @@ def draw_header_widget(row, stdscr, experiment_name, width, complete, active, re
     row += 1
     stdscr.addstr(row, 0, "-" * width)
     row += 1
-    completed_failed_string = "Completed {num_complete} / {num_total}".format(num_complete=len(complete),
+    completed_failed_string = "Completed {num_complete} / {num_total} @ {seconds_per_iteration} s/it ".format(num_complete=len(complete),
                                                                               num_total=len(complete) + len(
                                                                                   active) + len(
-                                                                                  registered))
+                                                                                  registered),seconds_per_iteration=round(timeestimator.compute_seconds_per_iteration(),3))
     if failed:
         completed_failed_string += " - Failed: {num_failed}".format(num_failed=len(failed))
     if in_slow_mode:
@@ -382,21 +382,23 @@ def draw_header_widget(row, stdscr, experiment_name, width, complete, active, re
     row+=1 
     completed_iterations = timeestimator.completed_iterations
     total_iterations = timeestimator.total_number_of_iterations 
-    progress_str = f"Iteration Progress: {completed_iterations} / {total_iterations} "
+    progress_str = f"Iteration Progress: {int(completed_iterations)} / {int(total_iterations)} "
     stdscr.addstr(row, 0, progress_str)
-    num_astericks = math.floor(completed_iterations / total_iterations * (width - len(progress_str)))
+    if total_iterations == 0:
+        num_astericks = 0
+    else:
+        num_astericks = math.floor(completed_iterations / total_iterations * (width - len(progress_str)))
+    
     num_dashes =  width-len(progress_str)  - num_astericks
-    stdscr.addstr(row, len(progress_str), "*" * num_astericks)
-    stdscr.addstr(row, len(progress_str) + num_astericks, "-" * num_dashes)
+    stdscr.addstr(row, len(progress_str), ">" * num_astericks)
+    stdscr.addstr(row, len(progress_str) + num_astericks, " " * num_dashes)
     row+= 1
     stdscr.addstr(row, 0, "=" * width)
 
     row += 1
     return row
-
-
 def draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height, failed,
-                               specification_id_to_specification, specification_readout_index):
+                               specification_readout_idx):
     start_row = row
     # Decide to draw in single or double column
     second_column_begins = math.floor(width / 2)
@@ -407,13 +409,11 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
         max_specification_length = max(map(len, active + registered + failed)) + 1
     except ValueError:
         max_specification_length = 0
+    if max_specification_length != 0:
+        specification_readout_idx = specification_readout_idx % max_specification_length
+    else:
+        specification_readout_idx = 0
     for i, active_specification in enumerate(active + registered + failed):
-        if use_double_column_layout and on_second_column:
-            stdscr.addstr(row, second_column_begins, active_specification[:max_specification_length])
-            specification_readout_start_index = second_column_begins + max_specification_length
-        else:
-            stdscr.addstr(row, 0, active_specification[:max_specification_length])
-            specification_readout_start_index = max_specification_length
         if use_double_column_layout:
             bar_width = math.floor(width / 8)
         else:
@@ -421,11 +421,11 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
 
         if active_specification in specification_progress:
             progress, max_amount = specification_progress[active_specification]
-            status_string = "{progress}/{max_amount} : ".format(progress=round(progress,2), max_amount=round(max_amount,2))
+            status_string = "{progress}/{max_amount} : ".format(progress=int(progress), max_amount=int(max_amount))
             amount_complete = progress / max_amount
             bars_complete = math.floor(amount_complete * bar_width)
             bars_not_complete = bar_width - bars_complete
-            status_string += "=" * bars_complete
+            status_string += ">" * bars_complete
             status_string += " " * bars_not_complete
 
 
@@ -442,6 +442,14 @@ def draw_specifications_widget(row, stdscr, active, registered, width, specifica
         else:
             stdscr.addstr(row, width - len(status_string), status_string)
             specification_readout_end_index = width - len(status_string)
+        active_specification_looped = "    ".join([active_specification] * 30)
+        if use_double_column_layout and not on_second_column:
+            stdscr.addstr(row, 0   , active_specification_looped[specification_readout_idx:second_column_begins - len(status_string) - 1 + specification_readout_idx])
+        elif use_double_column_layout and on_second_column:
+            stdscr.addstr(row, second_column_begins, active_specification_looped[specification_readout_idx:second_column_begins - len(status_string) - 1 + specification_readout_idx])
+        else:
+            stdscr.addstr(row, 0, active_specification_looped[SPECIFICATION_READOUT_IDX:width-len(status_string)-1 + specification_readout_idx])
+            specification_readout_start_index = max_specification_length
 
         # specification = str(specification_id_to_specification[active_specification])
         # specification_string_start_index = specification_readout_index % len(specification)
@@ -505,15 +513,22 @@ class SimpleTimeEstimator():
         self.completed_iterations += progress - previous_progress
         self.specification_progress[specification] = progress
 
+    def compute_seconds_per_iteration(self):
+        current_time = time.time()
+        time_elapsed = current_time - self.start_time
+        if self.completed_iterations == 0:
+            seconds_per_iteration = float("inf")
+        else:
+            seconds_per_iteration = time_elapsed / self.completed_iterations
+        
+        return seconds_per_iteration
+
 
     def record_start_time(self,start_time):
         self.start_time = start_time
         
     def compute_expectation(self):
-        current_time = time.time()
-        time_elapsed = current_time - self.start_time
-
-        seconds_per_iteration = time_elapsed / self.completed_iterations
+        seconds_per_iteration = self.compute_seconds_per_iteration()
 
         remaining_iterations = self.total_number_of_iterations - self.completed_iterations
         return remaining_iterations * seconds_per_iteration
@@ -559,7 +574,6 @@ def run(stdscr, name):
                 registered = []
                 failed = []
                 start_time = time.time()
-                specification_readout_index = 0
                 lines = f.readlines()
                 for event_string in lines:
                     split = event_string.split(",")
@@ -616,7 +630,7 @@ def run(stdscr, name):
             row = draw_header_widget(row, stdscr, experiment_name, width, complete, active, registered,
                                      specification_progress, timeestimator, failed, in_slow_mode=False)
             row = draw_specifications_widget(row, stdscr, active, registered, width, specification_progress, height,
-                                             failed, specification_ids_to_specification, specification_readout_index)
+                                             failed, specification_readout_index)
             #row = draw_log_widget(row, stdscr, width, height, log_spool)
             stdscr.refresh()
             time.sleep(2.0)
@@ -660,7 +674,7 @@ def write_dashboard(eventQueue,name):
                     f.write(f"REGISRTATION_COMPLETE\n")
                 else:
                     print("Dashboard action not understood")
-        time.sleep(0.2)
+        #time.sleep(0.2)
 
 def run_dash_from_command_line():
     experiment_name = sys.argv[1]
