@@ -9,7 +9,7 @@ from smallab.smallab_types import Specification, ExpProgressTuple
 
 class OverlappingOutputCheckpointedExperimentReturnValue():
     def __init__(self, should_continue: bool, specification: Specification, return_value: typing.Dict,
-                 progress: typing.SupportsFloat, max_iterations: typing.SupportsFloat):
+                 progress: typing.SupportsFloat, max_iterations: typing.SupportsFloat,should_serialize:bool=True):
         """
         The holder class for output from an OverlappingOutputCheckpointedExperiment
         :param should_continue: True if the experiment needs to continue (to perform more iterations etc)
@@ -23,6 +23,7 @@ class OverlappingOutputCheckpointedExperimentReturnValue():
         self.return_value = return_value
         self.progress = progress
         self.max_iterations = max_iterations
+        self.should_serialize = should_serialize
 
 
 class OverlappingOutputCheckpointedExperiment(ExperimentBase, HasCheckpoint, IterativeExperiment):

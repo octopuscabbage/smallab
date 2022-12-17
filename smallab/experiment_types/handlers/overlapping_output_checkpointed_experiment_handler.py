@@ -29,7 +29,8 @@ class OverlappingOutputCheckpointedExperimentHandler(BaseHandler):
         if isinstance(result, OverlappingOutputCheckpointedExperimentReturnValue):
             self.checkpointed_experiment_handler.publish_progress(experiment,specification,
                                                                   (result.progress, result.max_iterations))
-            yield {'specification': result.specification, 'result': result.return_value}
+            if result.should_serialize:
+                yield {'specification': result.specification, 'result': result.return_value}
         else:
             self.checkpointed_experiment_handler.publish_progress(experiment,specification, result)
 
@@ -40,7 +41,8 @@ class OverlappingOutputCheckpointedExperimentHandler(BaseHandler):
             if isinstance(result, OverlappingOutputCheckpointedExperimentReturnValue):
                 self.checkpointed_experiment_handler.publish_progress(experiment,specification,
                                                                       (result.progress, result.max_iterations))
-                yield {'specification': result.specification, 'result': result.return_value}
+                if result.should_serialize:
+                    yield {'specification': result.specification, 'result': result.return_value}
             else:
                 self.checkpointed_experiment_handler.publish_progress(experiment, specification, result)
         #this is done to have the runner know that the entire experiment completed succesfully
